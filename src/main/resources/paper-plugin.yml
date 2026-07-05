@@ -1,7 +1,7 @@
-name: ToriSMP_Shop
-version: '1.0.0'
+name: ToriSmpShop
+version: '1.0.1'
 main: jp.matatabi.torismpshop.ToriSmpShop
-api-version: '1.21'
+api-version: '1.21.8'
 # ブートストラップクラスの指定（必要に応じて）
 bootstrapper: jp.matatabi.torismpshop.ToriSmpShopBootstrap
 # ロダークラスの指定（外部ライブラリを動的に読み込む場合）
