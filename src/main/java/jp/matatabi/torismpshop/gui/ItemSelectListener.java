@@ -53,29 +53,22 @@ public class ItemSelectListener implements Listener {
             // 選択したアイテムを取得！
             org.bukkit.Material selectedMaterial = clicked.getType();
 
-            // 🌅 新規作成モード中なら → セッションに保存して新規作成GUIに戻る
+            // 🌅 アイテム追加モード中なら → tempMaterial に保存して ItemAddGui に戻る
             if (NewItemSession.isSelecting(player)) {
-                // セッションに保存（新設計：リストに追加）
-                NewItemSession.EditTarget target = NewItemSession.getEditTarget(player);
-                if (target == null) {
-                    player.sendMessage("§c❌ エラー：編集対象が不明だよ！");
-                    player.closeInventory();
-                    return;
-                }
-                NewItemSession.addItem(player, target, selectedMaterial, 1);
-                player.sendMessage("§a✅ " + selectedMaterial.name() + " を追加したよ！（1個）");
+                // 一時保存（まだリストには入れない！）
+                NewItemSession.setTempMaterial(player, selectedMaterial);
 
                 // モード解除
                 NewItemSession.stopSelecting(player);
 
                 // メッセージ
                 player.sendMessage(Component.text(
-                        "✅ " + selectedMaterial.name() + " を選択したよ！",
+                        "🎁 " + selectedMaterial.name() + " を選んだよ！個数も設定してね🌅",
                         NamedTextColor.GREEN
                 ));
 
-                // 新規作成GUIに戻る
-                NewItemGui.open(player);
+                // ItemAddGui に戻る（アイテムが入った状態で表示される）
+                ItemAddGui.open(player);
                 return;
             }
 

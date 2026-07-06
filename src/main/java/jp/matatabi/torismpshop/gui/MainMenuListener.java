@@ -22,10 +22,6 @@ public class MainMenuListener implements Listener {
         int slot = event.getRawSlot();
 
         switch (slot) {
-//            case 11 -> {
-//                player.closeInventory();
-//                player.sendMessage(Component.text("新規作成は次のステップで作るよ！", NamedTextColor.YELLOW));
-//            }
             case 11 -> {
                 // 新規作成ボタン → 新規作成メニューを開く
                 NewItemSession.clear(player);  // 🌅 前回のデータをクリア

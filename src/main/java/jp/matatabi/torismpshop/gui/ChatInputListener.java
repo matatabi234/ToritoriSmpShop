@@ -39,8 +39,8 @@ public class ChatInputListener implements Listener {
         // ===== キャンセル =====
         if (message.equalsIgnoreCase("cancel")) {
             player.sendMessage("§c❌ キャンセルしたよ");
-            // GUIを開き直す（メインスレッドで！）
-            Bukkit.getScheduler().runTask(plugin, () -> NewItemGui.open(player));
+            // ItemAddGui を開き直す（メインスレッドで！）
+            Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
             return;
         }
 
@@ -50,28 +50,27 @@ public class ChatInputListener implements Listener {
             amount = Integer.parseInt(message);
         } catch (NumberFormatException e) {
             player.sendMessage("§c❌ 数字を入力してね！（例: 64）");
-            Bukkit.getScheduler().runTask(plugin, () -> NewItemGui.open(player));
+            Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
             return;
         }
 
         // ===== 範囲チェック =====
         if (amount < 1) {
             player.sendMessage("§c❌ 1個以上にしてね！");
-            Bukkit.getScheduler().runTask(plugin, () -> NewItemGui.open(player));
+            Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
             return;
         }
-
         if (amount > 3456) {  // 54スロット × 64個 = インベントリ最大
             player.sendMessage("§c❌ 3456個までにしてね！（インベントリ超えちゃう）");
-            Bukkit.getScheduler().runTask(plugin, () -> NewItemGui.open(player));
+            Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
             return;
         }
 
-        // ===== 保存 =====
-//        NewItemSession.setAmount(player, amount);
+        // ===== 一時保存（tempAmount へ）=====
+        NewItemSession.setTempAmount(player, amount);
         player.sendMessage("§a✅ 個数を " + amount + " 個に設定したよ！");
 
-        // GUIを開き直す（メインスレッドで！）
-        Bukkit.getScheduler().runTask(plugin, () -> NewItemGui.open(player));
+        // ItemAddGui を開き直す（メインスレッドで！）
+        Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
     }
 }

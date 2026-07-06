@@ -28,6 +28,24 @@ public class NewItemSession {
     // 🌅 追加中のアイテム（一時保存用）
     private static final Map<UUID, org.bukkit.Material> tempMaterial = new HashMap<>();
 
+    // 🌅 追加中の個数（一時保存用）
+    private static final Map<UUID, Integer> tempAmount = new HashMap<>();
+
+    /**
+     * アイテム追加時の個数の一時保存
+     */
+    public static void setTempAmount(Player player, int amount) {
+        tempAmount.put(player.getUniqueId(), amount);
+    }
+
+    public static int getTempAmount(Player player) {
+        return tempAmount.getOrDefault(player.getUniqueId(), 1);  // デフォルト1個
+    }
+
+    public static void clearTempAmount(Player player) {
+        tempAmount.remove(player.getUniqueId());
+    }
+
 
     /**
      * 編集対象（支払い or 受取）
@@ -203,6 +221,7 @@ public class NewItemSession {
         amountInputMode.remove(uuid);
         editTarget.remove(uuid);
         tempMaterial.remove(uuid);
+        tempAmount.remove(uuid);  // ← 追加！
     }
 
     /**

@@ -21,6 +21,8 @@ public final class ToriSmpShop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ItemSelectListener(), this);
         getServer().getPluginManager().registerEvents(new NewItemListener(), this);
         getServer().getPluginManager().registerEvents(new ChatInputListener(this), this);
+        getServer().getPluginManager().registerEvents(new TradeItemListListener(), this);
+        getServer().getPluginManager().registerEvents(new ItemAddListener(), this);
 
         getLogger().info("ToriSmpShop が起動したよ！");
     }
