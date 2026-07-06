@@ -8,8 +8,10 @@ import io.papermc.paper.command.brigadier.Commands;
 import jp.matatabi.torismpshop.ToriSmpShop;
 import jp.matatabi.torismpshop.data.Trade;
 import jp.matatabi.torismpshop.data.TradeManager;
+import jp.matatabi.torismpshop.gui.MainMenuGui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.entity.Player;
 
 @SuppressWarnings("UnstableApiUsage")
 public class AdminShopCommand {
@@ -104,6 +106,19 @@ public class AdminShopCommand {
                         )
                 )
 
+                .then(Commands.literal("gui")
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(
+                                        Component.text("プレイヤーだけ使えるコマンドだよ！", NamedTextColor.RED)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            }
+                            MainMenuGui.open(player);
+                            return Command.SINGLE_SUCCESS;
+                        })
+                )
+
                 .build();
     }
 
@@ -114,5 +129,6 @@ public class AdminShopCommand {
         source.getSender().sendMessage(Component.text("/torishop list         - 取引一覧を表示", NamedTextColor.GRAY));
         source.getSender().sendMessage(Component.text("/torishop delete <ID>  - 取引を削除", NamedTextColor.GRAY));
         source.getSender().sendMessage(Component.text("/torishop bind <ID>    - 看板に取引を紐付け", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop gui          - 管理画面を開く", NamedTextColor.GRAY));
     }
 }
