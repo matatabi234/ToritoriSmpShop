@@ -24,6 +24,38 @@ public class ChatInputListener implements Listener {
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
 
+        // 🌅 ===== 検索入力モード =====
+        if (NewItemSession.isWaitingSearchInput(player)) {
+            event.setCancelled(true);
+
+            String message = PlainTextComponentSerializer.plainText().serialize(event.message());
+
+            // モード解除
+            NewItemSession.stopWaitingSearchInput(player);
+
+            // ===== キャンセル =====
+            if (message.equalsIgnoreCase("cancel")) {
+                player.sendMessage("§c❌ 検索キャンセルしたよ");
+                Bukkit.getScheduler().runTask(plugin, () -> ItemSelectGui.open(player, 0));
+                return;
+            }
+
+            // ===== 空文字チェック =====
+            if (message.trim().isEmpty()) {
+                player.sendMessage("§c❌ 検索ワードを入力してね！");
+                Bukkit.getScheduler().runTask(plugin, () -> ItemSelectGui.open(player, 0));
+                return;
+            }
+
+            // ===== 検索ワード保存 =====
+            NewItemSession.setSearchQuery(player, message.trim());
+            player.sendMessage("§a🔍 「" + message.trim() + "」で検索するよ〜🌅");
+
+            // アイテム選択GUIを開き直す（0ページ目から）
+            Bukkit.getScheduler().runTask(plugin, () -> ItemSelectGui.open(player, 0));
+            return;
+        }
+
         // 入力待ちモードじゃなければ無視
         if (!NewItemSession.isAmountInput(player)) return;
 

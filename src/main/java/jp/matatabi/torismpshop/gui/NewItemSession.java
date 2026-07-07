@@ -188,6 +188,39 @@ public class NewItemSession {
     }
 
 
+    // 🔍 検索キーワード保存
+    private static final Map<UUID, String> searchQuery = new HashMap<>();
+    // 🔍 検索入力待ちフラグ
+    private static final Set<UUID> waitingSearchInput = new HashSet<>();
+
+    public static void setSearchQuery(Player player, String query) {
+        searchQuery.put(player.getUniqueId(), query.toLowerCase());
+    }
+
+    public static String getSearchQuery(Player player) {
+        return searchQuery.get(player.getUniqueId());
+    }
+
+    public static void clearSearchQuery(Player player) {
+        searchQuery.remove(player.getUniqueId());
+    }
+
+    public static boolean hasSearchQuery(Player player) {
+        return searchQuery.containsKey(player.getUniqueId());
+    }
+
+    public static void startWaitingSearchInput(Player player) {
+        waitingSearchInput.add(player.getUniqueId());
+    }
+
+    public static void stopWaitingSearchInput(Player player) {
+        waitingSearchInput.remove(player.getUniqueId());
+    }
+
+    public static boolean isWaitingSearchInput(Player player) {
+        return waitingSearchInput.contains(player.getUniqueId());
+    }
+
     // ===================================
     // 📌 一時保存（追加中のアイテム）
     // ===================================
@@ -230,6 +263,8 @@ public class NewItemSession {
         tempAmount.remove(uuid);  // ← 追加！
         editingIndex.remove(player.getUniqueId());
         deleteMode.remove(player.getUniqueId());
+        searchQuery.remove(player.getUniqueId());
+        waitingSearchInput.remove(player.getUniqueId());
     }
 
     /**

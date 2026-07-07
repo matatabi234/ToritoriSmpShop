@@ -45,6 +45,36 @@ public class ItemSelectListener implements Listener {
             return;
         }
 
+// 🌅 47: 🔍 検索ボタン
+        if (slot == 47) {
+            // 検索入力待ち状態にする
+            NewItemSession.startWaitingSearchInput(player);
+            player.closeInventory();
+            player.sendMessage(Component.text(
+                    "🔍 検索したいアイテムIDをチャットで入力してね〜🌅",
+                    NamedTextColor.AQUA
+            ));
+            player.sendMessage(Component.text(
+                    "（例: iron, diamond, wood）「cancel」でキャンセル",
+                    NamedTextColor.GRAY
+            ));
+            return;
+        }
+
+// 🌅 51: 🔄 検索リセット
+        if (slot == 51) {
+            if (NewItemSession.hasSearchQuery(player)) {
+                NewItemSession.clearSearchQuery(player);
+                player.sendMessage(Component.text(
+                        "🔄 検索リセットしたよ〜！全アイテム表示するね🌅",
+                        NamedTextColor.GREEN
+                ));
+                // 0ページ目から表示し直す
+                ItemSelectGui.open(player, 0);
+            }
+            return;
+        }
+
 // 上段45スロット = アイテム選択エリア
         if (slot >= 0 && slot < 45) {
             ItemStack clicked = event.getCurrentItem();
@@ -88,13 +118,16 @@ public class ItemSelectListener implements Listener {
     public void onClose(InventoryCloseEvent event) {
         Component title = event.getView().title();
         if (title == null) return;
-
         String titleStr = PlainTextComponentSerializer.plainText().serialize(title);
         if (!titleStr.startsWith("アイテム選択")) return;
 
         if (event.getPlayer() instanceof Player player) {
             // 🌅 ページ送り中なら clearPage しない！
             if (ItemSelectGui.isSwitching(player)) return;
+
+            // 🌅 検索入力待ち中もクリアしない！
+            if (NewItemSession.isWaitingSearchInput(player)) return;
+
             ItemSelectGui.clearPage(player);
         }
     }

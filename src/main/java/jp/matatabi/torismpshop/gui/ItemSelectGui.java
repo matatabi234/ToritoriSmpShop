@@ -60,9 +60,6 @@ public class ItemSelectGui {
         open(player, 0);
     }
 
-    /**
-     * 指定ページを開く
-     */
     public static void open(Player player, int page) {
         List<Material> allItems = getAllItems();
 
@@ -72,30 +69,53 @@ public class ItemSelectGui {
             return;
         }
 
-        int totalPages = (int) Math.ceil((double) allItems.size() / ITEMS_PER_PAGE);
+        // 🌅 検索フィルタ適用！
+        String query = NewItemSession.getSearchQuery(player);
+        List<Material> filteredItems;
+        if (query != null && !query.isEmpty()) {
+            filteredItems = new ArrayList<>();
+            for (Material mat : allItems) {
+                if (mat.name().toLowerCase().contains(query)) {
+                    filteredItems.add(mat);
+                }
+            }
+            // 検索結果が0件
+            if (filteredItems.isEmpty()) {
+                player.sendMessage("§c❌ 「" + query + "」に一致するアイテムが無いよ💦");
+                NewItemSession.clearSearchQuery(player);
+                filteredItems = allItems;
+            }
+        } else {
+            filteredItems = allItems;
+        }
 
+        int totalPages = (int) Math.ceil((double) filteredItems.size() / ITEMS_PER_PAGE);
+        if (totalPages == 0) totalPages = 1;
         if (page < 0) page = 0;
         if (page >= totalPages) page = totalPages - 1;
+
         currentPage.put(player.getUniqueId(), page);
 
-        // 🌅 デバッグ追加
-        player.sendMessage("§b[Debug/open] 保存したページ: " + page + " (map size: " + currentPage.size() + ")");
-
-        // タイトルにページ番号を含める
-        Component title = Component.text("アイテム選択 [" + (page + 1) + "/" + totalPages + "]", NamedTextColor.GOLD);
+        // 🌅 タイトル：検索中は表示変更
+        Component title;
+        if (query != null && !query.isEmpty()) {
+            title = Component.text("アイテム選択 🔍\"" + query + "\" [" + (page + 1) + "/" + totalPages + "]", NamedTextColor.GOLD);
+        } else {
+            title = Component.text("アイテム選択 [" + (page + 1) + "/" + totalPages + "]", NamedTextColor.GOLD);
+        }
         Inventory inv = Bukkit.createInventory(null, 54, title);
 
         // アイテムを配置
         int startIndex = page * ITEMS_PER_PAGE;
-        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, allItems.size());
-
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, filteredItems.size());
         for (int i = startIndex; i < endIndex; i++) {
-            Material mat = allItems.get(i);
+            Material mat = filteredItems.get(i);
             ItemStack item = new ItemStack(mat);
             inv.setItem(i - startIndex, item);
         }
 
-        // 下段の操作ボタン（45〜53スロット）
+        // ===== 下段の操作ボタン（45〜53スロット） =====
+
         // 45: 前のページ
         if (page > 0) {
             inv.setItem(45, createButton(
@@ -105,12 +125,28 @@ public class ItemSelectGui {
             ));
         }
 
+        // 🌅 47: 🔍 検索ボタン
+        inv.setItem(47, createButton(
+                Material.SPYGLASS,
+                Component.text("🔍 検索", NamedTextColor.AQUA),
+                Component.text("クリックでチャット入力", NamedTextColor.GRAY)
+        ));
+
         // 49: 中央にページ情報
         inv.setItem(49, createButton(
                 Material.PAPER,
                 Component.text("ページ " + (page + 1) + " / " + totalPages, NamedTextColor.AQUA),
-                Component.text("全 " + allItems.size() + " アイテム", NamedTextColor.GRAY)
+                Component.text("全 " + filteredItems.size() + " アイテム", NamedTextColor.GRAY)
         ));
+
+        // 🌅 51: 🔄 検索リセット（検索中のみ表示）
+        if (query != null && !query.isEmpty()) {
+            inv.setItem(51, createButton(
+                    Material.BARRIER,
+                    Component.text("🔄 検索リセット", NamedTextColor.RED),
+                    Component.text("全アイテム表示に戻す", NamedTextColor.GRAY)
+            ));
+        }
 
         // 53: 次のページ
         if (page < totalPages - 1) {
@@ -120,17 +156,16 @@ public class ItemSelectGui {
                     Component.text("ページ " + (page + 2) + " へ", NamedTextColor.GRAY)
             ));
         }
-
-        // 🌅 ページ送り中フラグを立てる（openInventory の直前）
+        // 🌅 ページ送り中フラグを立てる
         markSwitching(player);
+
         player.openInventory(inv);
+
         // 🌅 フラグを降ろす（次のtickで安全に）
         Bukkit.getScheduler().runTask(
                 ToriSmpShop.getInstance(),
                 () -> unmarkSwitching(player)
         );
-
-        player.openInventory(inv);
     }
 
     /**
