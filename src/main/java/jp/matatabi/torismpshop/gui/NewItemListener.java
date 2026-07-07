@@ -1,11 +1,19 @@
 package jp.matatabi.torismpshop.gui;
 
+import jp.matatabi.torismpshop.data.ShopData;
+import jp.matatabi.torismpshop.data.ShopStorage;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 新規作成メニューGUIのクリック処理
@@ -40,7 +48,7 @@ public class NewItemListener implements Listener {
             return;
         }
 
-        // ===== ✅ 決定 =====
+// ===== ✅ 決定 =====
         if (slot == NewItemGui.SLOT_CONFIRM) {
             // 未設定チェック（支払い・受取どっちも1個以上）
             int payCount = NewItemSession.getPayItems(player).size();
@@ -51,8 +59,25 @@ public class NewItemListener implements Listener {
                 return;
             }
 
-            // TODO: yml保存（次のステップで実装）
-            player.sendMessage("§a✅ 決定！保存処理は次のステップで実装するよ〜🌅");
+            // 🌅 ===== ShopData 組み立て（超シンプル！） =====
+            String shopId = UUID.randomUUID().toString();
+            long now = System.currentTimeMillis();
+
+            ShopData shop = new ShopData(
+                    shopId,
+                    player.getName(),
+                    player.getUniqueId(),
+                    now,
+                    NewItemSession.getPayItems(player),      // そのまま渡せる！🌅
+                    NewItemSession.getReceiveItems(player)   // そのまま渡せる！🌅
+            );
+
+            // 🌅 ===== 保存実行！ =====
+            ShopStorage.save(shop);
+
+            // ===== 完了メッセージ =====
+            player.sendMessage("§a✅ 商品を登録したよ〜🌅");
+            player.sendMessage("§7ID: §f" + shopId.substring(0, 8) + "...");
             player.sendMessage("§7支払い: " + payCount + " 種類 / 合計 "
                     + NewItemSession.getPayTotalAmount(player) + " 個");
             player.sendMessage("§7受取: " + receiveCount + " 種類 / 合計 "
