@@ -205,6 +205,9 @@ public class NewItemSession {
     }
 
 
+    // 🌅 編集中のインデックス（-1 = 新規追加モード）
+    private static final Map<UUID, Integer> editingIndex = new HashMap<>();
+
     // ===================================
     // 🧹 セッション全消去
     // ===================================
@@ -222,6 +225,7 @@ public class NewItemSession {
         editTarget.remove(uuid);
         tempMaterial.remove(uuid);
         tempAmount.remove(uuid);  // ← 追加！
+        editingIndex.remove(player.getUniqueId());
     }
 
     /**
@@ -238,6 +242,42 @@ public class NewItemSession {
             getPayItems(player).add(newItem);
         } else if (target == EditTarget.RECEIVE) {
             getReceiveItems(player).add(newItem);
+        }
+    }
+
+    /**
+     * 編集モード開始（既存アイテムの編集）
+     */
+    public static void startEditing(Player player, int index, Material mat, int amount) {
+        editingIndex.put(player.getUniqueId(), index);
+        // 一時保存に既存の値を入れておく（初期表示用）
+        setTempMaterial(player, mat);
+        setTempAmount(player, amount);
+    }
+
+    /**
+     * 編集中のインデックス取得（-1 なら新規追加モード）
+     */
+    public static int getEditingIndex(Player player) {
+        return editingIndex.getOrDefault(player.getUniqueId(), -1);
+    }
+
+    /**
+     * 編集モード終了
+     */
+    public static void clearEditingIndex(Player player) {
+        editingIndex.remove(player.getUniqueId());
+    }
+
+    /**
+     * リスト内のアイテムを更新（編集用）
+     */
+    public static void updateItem(Player player, EditTarget target, int index, Material mat, int amount) {
+        List<TradeItem> list = (target == EditTarget.PAY)
+                ? getPayItems(player)
+                : getReceiveItems(player);
+        if (index >= 0 && index < list.size()) {
+            list.set(index, new TradeItem(mat, amount));
         }
     }
 }

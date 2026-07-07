@@ -53,10 +53,42 @@ public class TradeItemListListener implements Listener {
             return;
         }
 
-        // ===== 📦 アイテムクリック（編集） =====
+// ===== 📦 アイテムクリック（編集） =====
         if (slot >= TradeItemListGui.ITEM_AREA_START
                 && slot <= TradeItemListGui.ITEM_AREA_END) {
-            player.sendMessage("§e🚧 アイテム編集機能は次のステップで実装するよ〜🌅");
+
+            // 🌅 スロット → リストのインデックスに変換
+            int index = slot - TradeItemListGui.ITEM_AREA_START;
+
+            // 現在の編集対象取得
+            NewItemSession.EditTarget target = NewItemSession.getEditTarget(player);
+            if (target == null) {
+                player.sendMessage("§c❌ 編集対象が不明だよ！最初からやり直してね💦");
+                return;
+            }
+
+            // リスト取得
+            var list = (target == NewItemSession.EditTarget.PAY)
+                    ? NewItemSession.getPayItems(player)
+                    : NewItemSession.getReceiveItems(player);
+
+            // 範囲外チェック（空スロットをクリックした場合）
+            if (index < 0 || index >= list.size()) {
+                return;  // 何もしない
+            }
+
+            // 編集対象のアイテムを取得
+            var tradeItem = list.get(index);
+
+            // 🌅 編集モード開始！（インデックス保存 + 一時保存に既存値セット）
+            NewItemSession.startEditing(player, index, tradeItem.getMaterial(), tradeItem.getAmount());
+
+            // メッセージ
+            player.sendMessage("§b✏️ " + tradeItem.getMaterial().name()
+                    + " x " + tradeItem.getAmount() + " を編集するよ〜🌅");
+
+            // ItemAddGui を編集モードで開く（tempMaterial / tempAmount に既存値が入ってる状態）
+            ItemAddGui.open(player);
             return;
         }
 

@@ -20,7 +20,8 @@ public class ItemAddListener implements Listener {
         if (title == null) return;
 
         String titleStr = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!titleStr.contains("➕ アイテム追加")) return;
+        // 🌅 追加モード / 編集モード どっちも受け付ける
+        if (!titleStr.contains("➕ アイテム追加") && !titleStr.contains("✏️ アイテム編集")) return;
 
         // ===== 操作キャンセル =====
         event.setCancelled(true);
@@ -53,6 +54,9 @@ public class ItemAddListener implements Listener {
             Material mat = NewItemSession.getTempMaterial(player);
             int amount = NewItemSession.getTempAmount(player);
 
+            int editIndex = NewItemSession.getEditingIndex(player);
+            boolean isEditing = (editIndex >= 0);
+
             // 未設定チェック
             if (mat == null) {
                 player.sendMessage("§c❌ アイテムを選んでね！");
@@ -74,23 +78,36 @@ public class ItemAddListener implements Listener {
             int currentTotal = (target == NewItemSession.EditTarget.PAY)
                     ? NewItemSession.getPayTotalAmount(player)
                     : NewItemSession.getReceiveTotalAmount(player);
-
+            // 🌅 編集モードなら「元の個数」を除いて計算する
+            if (isEditing) {
+                var list = (target == NewItemSession.EditTarget.PAY)
+                        ? NewItemSession.getPayItems(player)
+                        : NewItemSession.getReceiveItems(player);
+                if (editIndex < list.size()) {
+                    currentTotal -= list.get(editIndex).getAmount();
+                }
+            }
             if (currentTotal + amount > TradeItemListGui.MAX_TOTAL_AMOUNT) {
                 player.sendMessage("§c❌ 合計個数が上限（"
                         + TradeItemListGui.MAX_TOTAL_AMOUNT + "個）を超えちゃうよ！");
-                player.sendMessage("§7現在: " + currentTotal + " / 追加しようとした: " + amount);
+                player.sendMessage("§7現在: " + currentTotal + " / " + (isEditing ? "変更後" : "追加") + ": " + amount);
                 return;
             }
 
-            // ===== リストに追加！ =====
-            NewItemSession.addItem(player, target, mat, amount);
+            if (isEditing) {
+                // 🌅 更新モード
+                NewItemSession.updateItem(player, target, editIndex, mat, amount);
+                player.sendMessage("§a✅ " + mat.name() + " x " + amount + " に更新したよ！🌅");
+            } else {
+                // 🌅 新規追加モード
+                NewItemSession.addItem(player, target, mat, amount);
+                player.sendMessage("§a✅ " + mat.name() + " x " + amount + " を追加したよ！🌅");
+            }
 
             // ===== 一時保存クリア =====
             NewItemSession.clearTempMaterial(player);
             NewItemSession.clearTempAmount(player);
-
-            // ===== 完了メッセージ =====
-            player.sendMessage("§a✅ " + mat.name() + " x " + amount + " を追加したよ！🌅");
+            NewItemSession.clearEditingIndex(player);  // 🌅 編集モードも解除！
 
             // ===== リストGUIに戻る =====
             TradeItemListGui.open(player, target);
@@ -102,7 +119,7 @@ public class ItemAddListener implements Listener {
             // 一時保存クリア
             NewItemSession.clearTempMaterial(player);
             NewItemSession.clearTempAmount(player);
-
+            NewItemSession.clearEditingIndex(player);
             // リストGUIに戻る
             NewItemSession.EditTarget target = NewItemSession.getEditTarget(player);
             if (target != null) {

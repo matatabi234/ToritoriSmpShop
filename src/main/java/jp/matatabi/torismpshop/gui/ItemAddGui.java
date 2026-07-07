@@ -18,7 +18,9 @@ import java.util.List;
  */
 public class ItemAddGui {
 
-    public static final String TITLE = "§b➕ アイテム追加";
+    public static final String TITLE_ADD = "§b➕ アイテム追加";
+    public static final String TITLE_EDIT = "§b✏️ アイテム編集";
+
 
     // スロット定数
     public static final int SLOT_ITEM = 11;      // 🎁 アイテム設定
@@ -30,7 +32,11 @@ public class ItemAddGui {
      * GUI を開く
      */
     public static void open(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 27, Component.text(TITLE));
+        // 🌅 編集モードかどうかでタイトル切り替え
+        boolean isEditing = NewItemSession.getEditingIndex(player) >= 0;
+        String title = isEditing ? TITLE_EDIT : TITLE_ADD;
+
+        Inventory gui = Bukkit.createInventory(null, 27, Component.text(title));
 
         // ===== 🎁 アイテム設定 =====
         gui.setItem(SLOT_ITEM, createItemButton(player));
@@ -39,7 +45,7 @@ public class ItemAddGui {
         gui.setItem(SLOT_AMOUNT, createAmountButton(player));
 
         // ===== ✅ 決定 =====
-        gui.setItem(SLOT_CONFIRM, createConfirmButton());
+        gui.setItem(SLOT_CONFIRM, createConfirmButton(player));
 
         // ===== ❌ キャンセル =====
         gui.setItem(SLOT_CANCEL, createCancelButton());
@@ -102,17 +108,29 @@ public class ItemAddGui {
     }
 
     /**
-     * ✅ 決定ボタン
+     * ✅ 決定ボタン（追加 or 更新）
      */
-    private static ItemStack createConfirmButton() {
+    private static ItemStack createConfirmButton(Player player) {
+        boolean isEditing = NewItemSession.getEditingIndex(player) >= 0;
+
         ItemStack item = new ItemStack(Material.LIME_CONCRETE);
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§a§l✅ 決定")
-                .decoration(TextDecoration.ITALIC, false));
+        if (isEditing) {
+            meta.displayName(Component.text("§a§l✅ 更新")
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            meta.displayName(Component.text("§a§l✅ 決定")
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7このアイテムをリストに追加するよ").decoration(TextDecoration.ITALIC, false));
+        if (isEditing) {
+            lore.add(Component.text("§7このアイテムの内容を更新するよ").decoration(TextDecoration.ITALIC, false));
+        } else {
+            lore.add(Component.text("§7このアイテムをリストに追加するよ").decoration(TextDecoration.ITALIC, false));
+        }
         lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("§e▶ クリックで確定").decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
