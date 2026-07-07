@@ -22,7 +22,8 @@ public class TradeItemListListener implements Listener {
         // "💰 支払いアイテム設定" または "🎁 受取アイテム設定" で始まるかチェック
         boolean isPayGui = titleStr.contains("支払いアイテム設定");
         boolean isReceiveGui = titleStr.contains("受取アイテム設定");
-        if (!isPayGui && !isReceiveGui) return;
+        boolean isDeleteGui = titleStr.contains("🗑️ 削除モード中");  // 🌅 追加！
+        if (!isPayGui && !isReceiveGui && !isDeleteGui) return;
 
         // ===== 操作キャンセル =====
         event.setCancelled(true);
@@ -47,9 +48,19 @@ public class TradeItemListListener implements Listener {
             return;
         }
 
-        // ===== 🗑️ 削除モードボタン =====
+        // ===== 🗑️ 削除モードボタン（トグル） =====
         if (slot == TradeItemListGui.SLOT_DELETE_MODE) {
-            player.sendMessage("§e🚧 削除モードは次のステップで実装するよ〜🌅");
+            if (NewItemSession.isDeleteMode(player)) {
+                // OFF
+                NewItemSession.disableDeleteMode(player);
+                player.sendMessage("§a✅ 通常モードに戻ったよ〜🌅");
+            } else {
+                // ON
+                NewItemSession.enableDeleteMode(player);
+                player.sendMessage("§c🗑️ 削除モードON！アイテムをクリックで削除できるよ");
+            }
+            // GUI再描画
+//            TradeItemListGui.open(player, target);
             return;
         }
 

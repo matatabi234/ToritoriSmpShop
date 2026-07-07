@@ -31,6 +31,9 @@ public class NewItemSession {
     // 🌅 追加中の個数（一時保存用）
     private static final Map<UUID, Integer> tempAmount = new HashMap<>();
 
+    // 🗑️ 削除モード中のプレイヤー
+    private static final Set<UUID> deleteMode = new HashSet<>();
+
     /**
      * アイテム追加時の個数の一時保存
      */
@@ -226,6 +229,7 @@ public class NewItemSession {
         tempMaterial.remove(uuid);
         tempAmount.remove(uuid);  // ← 追加！
         editingIndex.remove(player.getUniqueId());
+        deleteMode.remove(player.getUniqueId());
     }
 
     /**
@@ -278,6 +282,39 @@ public class NewItemSession {
                 : getReceiveItems(player);
         if (index >= 0 && index < list.size()) {
             list.set(index, new TradeItem(mat, amount));
+        }
+    }
+
+    /**
+     * 削除モードON
+     */
+    public static void enableDeleteMode(Player player) {
+        deleteMode.add(player.getUniqueId());
+    }
+
+    /**
+     * 削除モードOFF
+     */
+    public static void disableDeleteMode(Player player) {
+        deleteMode.remove(player.getUniqueId());
+    }
+
+    /**
+     * 削除モード中か？
+     */
+    public static boolean isDeleteMode(Player player) {
+        return deleteMode.contains(player.getUniqueId());
+    }
+
+    /**
+     * リストからアイテムを削除
+     */
+    public static void removeItem(Player player, EditTarget target, int index) {
+        List<TradeItem> list = (target == EditTarget.PAY)
+                ? getPayItems(player)
+                : getReceiveItems(player);
+        if (index >= 0 && index < list.size()) {
+            list.remove(index);
         }
     }
 }

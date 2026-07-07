@@ -48,11 +48,12 @@ public class TradeItemListGui {
         // 編集対象を保存
         NewItemSession.setEditTarget(player, target);
 
-        // タイトル決定
-        String title = (target == NewItemSession.EditTarget.PAY)
+        // 🌅 削除モードなら赤いタイトルに！
+        boolean isDeleteMode = NewItemSession.isDeleteMode(player);
+        String baseTitle = (target == NewItemSession.EditTarget.PAY)
                 ? TITLE_PAY
                 : TITLE_RECEIVE;
-
+        String title = isDeleteMode ? "§c🗑️ 削除モード中" : baseTitle;
         Inventory gui = Bukkit.createInventory(null, 54, Component.text(title));
 
         // ===== アイテムリスト取得 =====
@@ -73,7 +74,7 @@ public class TradeItemListGui {
         // ===== 📦 アイテムリスト表示 =====
         for (int i = 0; i < items.size() && i < MAX_ITEMS; i++) {
             TradeItem item = items.get(i);
-            gui.setItem(ITEM_AREA_START + i, createDisplayItem(item, i));
+            gui.setItem(ITEM_AREA_START + i, createDisplayItem(item, i, player));
         }
 
         // ===== ➕ 追加ボタン =====
@@ -83,7 +84,7 @@ public class TradeItemListGui {
         gui.setItem(SLOT_BACK, createBackButton());
 
         // ===== 🗑️ 削除モードボタン =====
-        gui.setItem(SLOT_DELETE_MODE, createDeleteButton());
+        gui.setItem(SLOT_DELETE_MODE, createDeleteButton(player));
         player.openInventory(gui);
     }
 
@@ -154,20 +155,33 @@ public class TradeItemListGui {
     /**
      * 📦 アイテムリストの各アイテム表示
      */
-    private static ItemStack createDisplayItem(TradeItem tradeItem, int index) {
+    private static ItemStack createDisplayItem(TradeItem tradeItem, int index, Player player) {
+        boolean isDeleteMode = NewItemSession.isDeleteMode(player);
+
         ItemStack item = new ItemStack(tradeItem.getMaterial(), tradeItem.getAmount());
         ItemMeta meta = item.getItemMeta();
 
-        // 表示名（アイテム名 + 個数）
-        meta.displayName(Component.text("§f§l" + tradeItem.getMaterial().name() + " §7x " + tradeItem.getAmount())
-                .decoration(TextDecoration.ITALIC, false));
+        // 🌅 削除モード時は赤色 + 表記変更
+        if (isDeleteMode) {
+            meta.displayName(Component.text("§c§l🗑️ " + tradeItem.getMaterial().name() + " §7x " + tradeItem.getAmount())
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            meta.displayName(Component.text("§f§l" + tradeItem.getMaterial().name() + " §7x " + tradeItem.getAmount())
+                    .decoration(TextDecoration.ITALIC, false));
+        }
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§e▶ クリックで編集").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7  アイテムや個数を変えられるよ").decoration(TextDecoration.ITALIC, false));
+
+        if (isDeleteMode) {
+            lore.add(Component.text("§c▶ クリックで削除").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§7  戻すには🗑️をもう一度クリック").decoration(TextDecoration.ITALIC, false));
+        } else {
+            lore.add(Component.text("§e▶ クリックで編集").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§7  アイテムや個数を変えられるよ").decoration(TextDecoration.ITALIC, false));
+        }
+
         lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        // 🌅 インデックスをloreに埋め込んでおく（後でクリック時に参照）
         lore.add(Component.text("§8index: " + index).decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
 
@@ -217,20 +231,36 @@ public class TradeItemListGui {
 
 
     /**
-     * 🗑️ 削除モードボタン
+     * 🗑️ 削除モードボタン（トグル）
      */
-    private static ItemStack createDeleteButton() {
-        ItemStack item = new ItemStack(Material.BARRIER);
+    private static ItemStack createDeleteButton(Player player) {
+        boolean isDeleteMode = NewItemSession.isDeleteMode(player);
+
+        // 🌅 モードによって色変更
+        Material mat = isDeleteMode ? Material.REDSTONE_BLOCK : Material.BARRIER;
+        ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("§c§l🗑️ 削除モード")
-                .decoration(TextDecoration.ITALIC, false));
+
+        if (isDeleteMode) {
+            meta.displayName(Component.text("§c§l🗑️ 削除モード中")
+                    .decoration(TextDecoration.ITALIC, false));
+        } else {
+            meta.displayName(Component.text("§c§l🗑️ 削除モード")
+                    .decoration(TextDecoration.ITALIC, false));
+        }
 
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("§7アイテムを削除するモードに").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7切り替えるよ").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§e▶ クリックで削除モード").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7  （確認画面が出るよ）").decoration(TextDecoration.ITALIC, false));
+        if (isDeleteMode) {
+            lore.add(Component.text("§7削除モード中だよ！").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§cアイテムをクリックすると削除").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§e▶ クリックで通常モードに戻る").decoration(TextDecoration.ITALIC, false));
+        } else {
+            lore.add(Component.text("§7アイテムを削除するモードに").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§7切り替えるよ").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§e▶ クリックで削除モードON").decoration(TextDecoration.ITALIC, false));
+        }
         meta.lore(lore);
 
         item.setItemMeta(meta);
