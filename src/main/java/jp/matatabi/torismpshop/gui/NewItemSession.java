@@ -1,5 +1,6 @@
 package jp.matatabi.torismpshop.gui;
 
+import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.TradeItem;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -244,6 +245,9 @@ public class NewItemSession {
     // 🌅 編集中のインデックス（-1 = 新規追加モード）
     private static final Map<UUID, Integer> editingIndex = new HashMap<>();
 
+    // 🌅 編集中の ShopData ID（null = 新規作成モード）
+    private static final Map<UUID, String> editingShopId = new HashMap<>();
+
     // ===================================
     // 🧹 セッション全消去
     // ===================================
@@ -265,6 +269,7 @@ public class NewItemSession {
         deleteMode.remove(player.getUniqueId());
         searchQuery.remove(player.getUniqueId());
         waitingSearchInput.remove(player.getUniqueId());
+        editingShopId.remove(uuid);
     }
 
     /**
@@ -351,5 +356,40 @@ public class NewItemSession {
         if (index >= 0 && index < list.size()) {
             list.remove(index);
         }
+    }
+
+    /**
+     * 編集中の ShopData ID をセット（既存取引の編集開始）
+     */
+    public static void setEditingShopId(Player player, String shopId) {
+        editingShopId.put(player.getUniqueId(), shopId);
+    }
+
+    /**
+     * 編集中の ShopData ID 取得（null なら新規作成モード）
+     */
+    public static String getEditingShopId(Player player) {
+        return editingShopId.get(player.getUniqueId());
+    }
+
+    /**
+     * 編集モード終了
+     */
+    public static void clearEditingShopId(Player player) {
+        editingShopId.remove(player.getUniqueId());
+    }
+
+    /**
+     * 既存の ShopData をセッションにロード（編集開始）
+     */
+    public static void loadFromShopData(Player player, ShopData shop) {
+        UUID uuid = player.getUniqueId();
+        // 既存セッションクリア
+        clear(player);
+        // ShopData の中身をコピー
+        payItems.put(uuid, new ArrayList<>(shop.getPayItems()));
+        receiveItems.put(uuid, new ArrayList<>(shop.getReceiveItems()));
+        // 編集中IDセット
+        editingShopId.put(uuid, shop.getId());
     }
 }

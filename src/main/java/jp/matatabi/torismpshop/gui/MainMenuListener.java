@@ -28,8 +28,7 @@ public class MainMenuListener implements Listener {
                 NewItemGui.open(player);
             }
             case 13 -> {
-                player.closeInventory();
-                player.sendMessage(Component.text("取引一覧は次のステップで作るよ！", NamedTextColor.AQUA));
+                ShopListGui.openPage(player, 0);
             }
             case 15 -> {
                 player.closeInventory();

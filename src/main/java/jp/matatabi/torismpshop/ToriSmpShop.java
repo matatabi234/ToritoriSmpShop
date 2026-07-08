@@ -18,12 +18,15 @@ public final class ToriSmpShop extends JavaPlugin {
         // 🌅 起動時に必ず呼ぶ！
         ItemSelectGui.initialize(this);
         ShopStorage.initialize(this);
+        ShopStorage.loadAll();
         getServer().getPluginManager().registerEvents(new MainMenuListener(), this);
         getServer().getPluginManager().registerEvents(new ItemSelectListener(), this);
         getServer().getPluginManager().registerEvents(new NewItemListener(), this);
         getServer().getPluginManager().registerEvents(new ChatInputListener(this), this);
         getServer().getPluginManager().registerEvents(new TradeItemListListener(), this);
         getServer().getPluginManager().registerEvents(new ItemAddListener(), this);
+        getServer().getPluginManager().registerEvents(new ShopListListener(), this);
+        getServer().getPluginManager().registerEvents(new TradeListener(), this);
 
         getLogger().info("ToriSmpShop が起動したよ！");
     }

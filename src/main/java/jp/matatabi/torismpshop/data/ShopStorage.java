@@ -47,14 +47,25 @@ public class ShopStorage {
     }
 
     /**
-     * ShopData を保存する（追記）
+     * 🌅 ShopData を保存する（同じIDなら上書き、無ければ追加）
      * ⚠️ ファイル書き込みは非同期でやる（サーバーを止めない）
      */
     public static void save(ShopData shop) {
-        // メモリにも追加
-        shops.add(shop);
+        // ===== メモリ側：同じIDあれば置換、なければ追加 =====
+        boolean replaced = false;
+        for (int i = 0; i < shops.size(); i++) {
+            if (shops.get(i).getId().equals(shop.getId())) {
+                shops.set(i, shop);   // 🌅 上書き！
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            shops.add(shop);           // 新規追加
+        }
+        final boolean isUpdate = replaced;
 
-        // 非同期でファイル保存
+        // ===== 非同期でファイル保存 =====
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             try {
                 long start = System.currentTimeMillis();
@@ -63,18 +74,31 @@ public class ShopStorage {
 
                 // 既存のリストを取得
                 List<Map<?, ?>> existing = config.getMapList("shops");
-                List<Map<?, ?>> updated = new ArrayList<>(existing);
+                List<Map<?, ?>> updated = new ArrayList<>();
 
-                // 新しいショップを追加
-                updated.add(shop.toMap());
+                // 🌅 同じIDのやつは飛ばして、あとから新しいのを追加する
+                boolean fileReplaced = false;
+                for (Map<?, ?> m : existing) {
+                    Object idObj = m.get("id");
+                    if (idObj != null && idObj.toString().equals(shop.getId())) {
+                        updated.add(shop.toMap());   // 🌅 上書き！
+                        fileReplaced = true;
+                    } else {
+                        updated.add(m);
+                    }
+                }
+                // ファイル側にも無かったら末尾に追加
+                if (!fileReplaced) {
+                    updated.add(shop.toMap());
+                }
 
                 config.set("shops", updated);
                 config.save(shopsFile);
 
                 long elapsed = System.currentTimeMillis() - start;
                 plugin.getLogger().info(
-                        "shops.yml に商品を保存したよ！ (id=" + shop.getId()
-                                + ", " + elapsed + "ms)"
+                        (isUpdate ? "shops.yml の商品を更新したよ！" : "shops.yml に商品を保存したよ！")
+                                + " (id=" + shop.getId() + ", " + elapsed + "ms)"
                 );
 
             } catch (IOException e) {
@@ -123,5 +147,60 @@ public class ShopStorage {
      */
     public static int size() {
         return shops.size();
+    }
+
+    /**
+     * ID指定でショップを1件取得
+     */
+    public static ShopData getById(String id) {
+        for (ShopData shop : shops) {
+            if (shop.getId().equals(id)) {
+                return shop;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * ID指定でショップを削除
+     * メモリ・ファイル両方から消す
+     */
+    public static void delete(String id) {
+        // メモリから削除
+        boolean removed = shops.removeIf(s -> s.getId().equals(id));
+        if (!removed) {
+            plugin.getLogger().warning("削除対象が見つからない: " + id);
+            return;
+        }
+
+        // 非同期でファイル書き換え
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                long start = System.currentTimeMillis();
+                YamlConfiguration config = YamlConfiguration.loadConfiguration(shopsFile);
+                List<Map<?, ?>> existing = config.getMapList("shops");
+
+                // 該当ID以外を残す
+                List<Map<?, ?>> updated = new ArrayList<>();
+                for (Map<?, ?> map : existing) {
+                    Object mapId = map.get("id");
+                    if (mapId == null || !mapId.toString().equals(id)) {
+                        updated.add(map);
+                    }
+                }
+
+                config.set("shops", updated);
+                config.save(shopsFile);
+
+                long elapsed = System.currentTimeMillis() - start;
+                plugin.getLogger().info(
+                        "shops.yml から商品を削除したよ！ (id=" + id
+                                + ", " + elapsed + "ms)"
+                );
+            } catch (IOException e) {
+                plugin.getLogger().severe("shops.yml の削除保存に失敗: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
     }
 }

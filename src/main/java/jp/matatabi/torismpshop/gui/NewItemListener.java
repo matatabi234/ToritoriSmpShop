@@ -48,42 +48,68 @@ public class NewItemListener implements Listener {
             return;
         }
 
-// ===== ✅ 決定 =====
+        // ===== ✅ 決定 =====
         if (slot == NewItemGui.SLOT_CONFIRM) {
             // 未設定チェック（支払い・受取どっちも1個以上）
             int payCount = NewItemSession.getPayItems(player).size();
             int receiveCount = NewItemSession.getReceiveItems(player).size();
-
             if (payCount == 0 || receiveCount == 0) {
                 player.sendMessage("§c支払いと受取を両方設定してね！");
                 return;
             }
 
-            // 🌅 ===== ShopData 組み立て（超シンプル！） =====
-            String shopId = UUID.randomUUID().toString();
-            long now = System.currentTimeMillis();
+            // 🌅 編集モードか判定
+            String editingId = NewItemSession.getEditingShopId(player);
+            boolean isEditing = (editingId != null);
 
-            ShopData shop = new ShopData(
-                    shopId,
-                    player.getName(),
-                    player.getUniqueId(),
-                    now,
-                    NewItemSession.getPayItems(player),      // そのまま渡せる！🌅
-                    NewItemSession.getReceiveItems(player)   // そのまま渡せる！🌅
-            );
+            ShopData shop;
+            if (isEditing) {
+                // 🔧 ===== 編集モード：既存 ShopData を上書き =====
+                ShopData oldShop = ShopStorage.getById(editingId);
+                if (oldShop == null) {
+                    player.sendMessage("§c❌ 元の商品が見つからないよ💦");
+                    NewItemSession.clear(player);
+                    player.closeInventory();
+                    return;
+                }
+                shop = new ShopData(
+                        editingId,                         // 🌅 同じIDで上書き！
+                        oldShop.getOwnerName(),
+                        oldShop.getOwnerUuid(),
+                        oldShop.getCreatedAt(),            // 作成日はそのまま
+                        NewItemSession.getPayItems(player),
+                        NewItemSession.getReceiveItems(player)
+                );
+            } else {
+                // ➕ ===== 新規モード：新しい ShopData を作成 =====
+                String shopId = UUID.randomUUID().toString();
+                long now = System.currentTimeMillis();
+                shop = new ShopData(
+                        shopId,
+                        player.getName(),
+                        player.getUniqueId(),
+                        now,
+                        NewItemSession.getPayItems(player),
+                        NewItemSession.getReceiveItems(player)
+                );
+            }
 
             // 🌅 ===== 保存実行！ =====
             ShopStorage.save(shop);
 
             // ===== 完了メッセージ =====
-            player.sendMessage("§a✅ 商品を登録したよ〜🌅");
-            player.sendMessage("§7ID: §f" + shopId.substring(0, 8) + "...");
+            if (isEditing) {
+                player.sendMessage("§a✅ 商品を更新したよ〜🌅");
+            } else {
+                player.sendMessage("§a✅ 商品を登録したよ〜🌅");
+            }
+            player.sendMessage("§7ID: §f" + shop.getId().substring(0, 8) + "...");
             player.sendMessage("§7支払い: " + payCount + " 種類 / 合計 "
                     + NewItemSession.getPayTotalAmount(player) + " 個");
             player.sendMessage("§7受取: " + receiveCount + " 種類 / 合計 "
                     + NewItemSession.getReceiveTotalAmount(player) + " 個");
 
-            // セッションクリア
+            // セッションクリア（editingShopId も clear() で消える🌅）
             NewItemSession.clear(player);
 
             // GUIを閉じる

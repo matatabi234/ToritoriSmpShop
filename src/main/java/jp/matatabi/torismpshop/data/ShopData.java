@@ -126,4 +126,40 @@ public class ShopData {
         Material mat = Material.valueOf(matName);
         return new TradeItem(mat, amount);
     }
+
+    /**
+     * Trade（作成中データ）から ShopData（保存用データ）に変換
+     *
+     * @param trade      変換元の Trade
+     * @param ownerName  保存するプレイヤー名
+     * @param ownerUuid  保存するプレイヤーUUID
+     * @return 保存用の ShopData
+     */
+    public static ShopData fromTrade(Trade trade, String ownerName, UUID ownerUuid) {
+        // Trade の inputItem/outputItem を List<TradeItem> に変換
+        List<TradeItem> payItems = new ArrayList<>();
+        if (trade.getInputItem() != null) {
+            payItems.add(new TradeItem(
+                    trade.getInputItem().getType(),
+                    trade.getInputItem().getAmount()
+            ));
+        }
+
+        List<TradeItem> receiveItems = new ArrayList<>();
+        if (trade.getOutputItem() != null) {
+            receiveItems.add(new TradeItem(
+                    trade.getOutputItem().getType(),
+                    trade.getOutputItem().getAmount()
+            ));
+        }
+
+        return new ShopData(
+                trade.getId(),
+                ownerName,
+                ownerUuid,
+                System.currentTimeMillis(),
+                payItems,
+                receiveItems
+        );
+    }
 }
