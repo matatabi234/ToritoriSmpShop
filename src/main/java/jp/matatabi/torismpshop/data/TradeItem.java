@@ -33,4 +33,18 @@ public class TradeItem {
     public void setAmount(int amount) {
         this.amount = amount;
     }
+
+    public MatchMode getMatchMode() {
+        return matchMode;
+    }
+
+    public enum MatchMode {
+        MATERIAL_ONLY,   // 現状：Materialだけ一致でOK（デフォ）
+        HAS_TAG,         // ②：指定PDCタグが付いてればOK
+        EXACT            // ①：ItemStack完全一致（将来用）
+    }
+
+    private MatchMode matchMode = MatchMode.MATERIAL_ONLY;  // ← 追加
+    private String tagKey;  // ← 追加（HAS_TAGの時に使う）
+    private String tagValue;// ← 追加（HAS_TAGの時に使う。null なら「タグが存在するだけでOK」）
 }

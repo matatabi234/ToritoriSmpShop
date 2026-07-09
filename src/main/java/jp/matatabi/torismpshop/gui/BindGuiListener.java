@@ -82,7 +82,7 @@ public class BindGuiListener implements Listener {
             String defaultDisplayName = "取引 #" + shopId.substring(0, 8);
 
             // ===== Bindモード開始 =====
-            BindModeManager.set(player, shopId, defaultDisplayName);
+            BindModeManager.setNewBind(player, shopId, defaultDisplayName);
             BindGui.clearSession(player);
             player.closeInventory();
 

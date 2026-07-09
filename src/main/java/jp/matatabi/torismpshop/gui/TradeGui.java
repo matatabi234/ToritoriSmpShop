@@ -24,7 +24,7 @@ import java.util.UUID;
  */
 public class TradeGui {
 
-    public static final String TITLE_PREFIX = "§6🤝 取引: ";
+    public static final String TITLE_PREFIX = "§6取引: ";
 
     // ===== スロット定数 =====
     // 💰 支払うアイテム表示エリア

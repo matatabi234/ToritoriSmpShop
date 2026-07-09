@@ -31,7 +31,7 @@ public class TradeListener implements Listener {
         Component title = event.getView().title();
         if (title == null) return;
         String titleStr = PlainTextComponentSerializer.plainText().serialize(title);
-        if (!titleStr.startsWith("🤝 取引: ")) return;
+        if (!titleStr.contains("取引: ")) return;
 
         // 🌅 全操作キャンセル（アイテム持ち出し防止）
         event.setCancelled(true);
@@ -84,6 +84,7 @@ public class TradeListener implements Listener {
             return;
         }
 
+        // ToDo ymlで管理予定
         // ===== 自分の取引は実行できないようにする（お好み）=====
         if (shop.getOwnerUuid().equals(player.getUniqueId().toString())) {
             player.sendMessage("§c自分の取引は実行できないよ〜🙈");

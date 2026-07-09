@@ -8,6 +8,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import jp.matatabi.torismpshop.BindModeManager;
 import jp.matatabi.torismpshop.ToriSmpShop;
 import jp.matatabi.torismpshop.data.*;
+import jp.matatabi.torismpshop.gui.BindGui;
 import jp.matatabi.torismpshop.gui.MainMenuGui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -33,57 +34,137 @@ public class AdminShopCommand {
                 // /torishop bind （引数なし → GUI開く）
                 // ================================
                 .then(Commands.literal("bind")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.bind"))
+                        // /torishop → ヘルプ表示
                         .executes(ctx -> {
                             if (!(ctx.getSource().getSender() instanceof Player player)) {
                                 ctx.getSource().getSender().sendMessage(
-                                        Component.text("このコマンドはプレイヤーだけ使えるよ〜", NamedTextColor.RED)
+                                        Component.text("プレイヤーだけ使えるコマンドだよ！", NamedTextColor.RED)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            }
+                            BindGui.open(player);
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.bind"))
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                        .executes(ctx -> {
+                                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                                ctx.getSource().getSender().sendMessage(
+                                                        Component.text("このコマンドはプレイヤーだけ使えるよ〜", NamedTextColor.RED)
+                                                );
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            String id = StringArgumentType.getString(ctx, "id");
+                                            String displayName = StringArgumentType.getString(ctx, "displayName");
+
+                                            // ===== 文字数チェック =====
+                                            if (displayName.length() > 12) {
+                                                player.sendMessage(Component.text(
+                                                        "§c表示名は12文字以内にしてね💦（今: " + displayName.length() + "文字）"
+                                                ));
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            // ===== ShopIDの存在チェック =====
+                                            ShopData shop = ShopStorage.getById(id);
+                                            if (shop == null) {
+                                                player.sendMessage(Component.text(
+                                                        "§cそのID (§f" + id + "§c) の取引は見つからないよ💦"
+                                                ));
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            // ===== 自分の取引かチェック（他人のはbindできない）=====
+                                            if (!shop.getOwnerUuid().equals(player.getUniqueId())) {
+                                                player.sendMessage(Component.text(
+                                                        "§c自分の取引しか bind できないよ〜🙈"
+                                                ));
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            // ===== Bindモード開始 =====
+                                            BindModeManager.setNewBind(player, id, displayName);
+
+                                            player.sendMessage(Component.text("§a✅ Bind モード開始！"));
+                                            player.sendMessage(Component.text(
+                                                    "§7次にクリックした看板に §f[" + displayName + "] §7を紐付けるよ🔗"
+                                            ));
+                                            player.sendMessage(Component.text(
+                                                    "§7キャンセルは §e/torishop bind cancel §7でどうぞ〜"
+                                            ));
+
+                                            return Command.SINGLE_SUCCESS;
+                                        })
+                                )
+                        )
+                        // ===== 新規: /torishop bind name <displayName> =====
+                        .then(Commands.literal("name")
+                                .then(Commands.argument("displayName", StringArgumentType.greedyString())
+                                        .executes(ctx -> {
+                                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                                ctx.getSource().getSender().sendMessage(
+                                                        Component.text("このコマンドはプレイヤーだけ使えるよ〜", NamedTextColor.RED)
+                                                );
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            String newName = StringArgumentType.getString(ctx, "displayName");
+
+                                            // ===== 文字数チェック =====
+                                            if (newName.length() > 12) {
+                                                player.sendMessage(Component.text(
+                                                        "§c表示名は12文字以内にしてね💦（今: " + newName.length() + "文字）"
+                                                ));
+                                                return Command.SINGLE_SUCCESS;
+                                            }
+
+                                            // ===== 表示名変更モード開始 =====
+                                            BindModeManager.setRenameOnly(player, newName);
+
+                                            player.sendMessage(Component.text("§a✏️ 表示名変更モード開始！"));
+                                            player.sendMessage(Component.text(
+                                                    "§760秒以内に §f変更したい看板をクリック §7してね〜🌅"
+                                            ));
+                                            player.sendMessage(Component.text(
+                                                    "§7新しい表示名: §b[" + newName + "]"
+                                            ));
+                                            player.sendMessage(Component.text(
+                                                    "§7キャンセルは §e/torishop bind cancel §7でどうぞ〜"
+                                            ));
+
+                                            return Command.SINGLE_SUCCESS;
+                                        })
+                                )
+                        )
+                )
+                .then(Commands.literal("unbind"))
+                .requires(source -> source.getSender().hasPermission("torismpshop.torishop.unbind"))
+                        .executes(ctx -> {
+                            if (!(ctx.getSource().getSender() instanceof Player player)) {
+                                ctx.getSource().getSender().sendMessage(
+                                        Component.text("プレイヤーだけ使えるコマンドだよ！", NamedTextColor.RED)
                                 );
                                 return Command.SINGLE_SUCCESS;
                             }
 
-                            String id = StringArgumentType.getString(ctx, "id");
-                            String displayName = StringArgumentType.getString(ctx, "displayName");
+                            // Unbindモード起動
+                            BindModeManager.setUnbind(player);
 
-                            // ===== 文字数チェック =====
-                            if (displayName.length() > 12) {
-                                player.sendMessage(Component.text(
-                                        "§c表示名は12文字以内にしてね💦（今: " + displayName.length() + "文字）"
-                                ));
-                                return Command.SINGLE_SUCCESS;
-                            }
-
-                            // ===== ShopIDの存在チェック =====
-                            ShopData shop = ShopStorage.getById(id);
-                            if (shop == null) {
-                                player.sendMessage(Component.text(
-                                        "§cそのID (§f" + id + "§c) の取引は見つからないよ💦"
-                                ));
-                                return Command.SINGLE_SUCCESS;
-                            }
-
-                            // ===== 自分の取引かチェック（他人のはbindできない）=====
-                            if (!shop.getOwnerUuid().equals(player.getUniqueId().toString())) {
-                                player.sendMessage(Component.text(
-                                        "§c自分の取引しか bind できないよ〜🙈"
-                                ));
-                                return Command.SINGLE_SUCCESS;
-                            }
-
-                            // ===== Bindモード開始 =====
-                            BindModeManager.set(player, id, displayName);
-
-                            player.sendMessage(Component.text("§a✅ Bind モード開始！"));
+                            // 案内メッセージ
+                            player.sendMessage(Component.text("§e🗑️ 解除モード起動〜！")
+                                    .color(NamedTextColor.GOLD));
                             player.sendMessage(Component.text(
-                                    "§7次にクリックした看板に §f[" + displayName + "] §7を紐付けるよ🔗"
+                                    "§760秒以内に §e解除したい看板 §7を右クリックしてね〜🌅"
                             ));
                             player.sendMessage(Component.text(
-                                    "§7キャンセルは §e/torishop bind cancel §7でどうぞ〜"
+                                    "§8※ 自分の看板しか解除できないよ"
                             ));
 
+                            MainMenuGui.open(player);
                             return Command.SINGLE_SUCCESS;
                         })
-                )
                 .then(Commands.literal("gui")
                         .requires(source -> source.getSender().hasPermission("torismpshop.torishop.gui"))
                         .executes(ctx -> {

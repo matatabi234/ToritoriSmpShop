@@ -1,76 +1,131 @@
 package jp.matatabi.torismpshop;
 
+import jp.matatabi.torismpshop.ToriSmpShop;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * 🌅 Bindモード管理クラス
- * 誰が今どのShopIDをbind待ちしてるかを覚えとく係〜
+ * 🔗 Bindモードの状態管理
  */
 public class BindModeManager {
 
-    /**
-     * 🔗 Bindモード情報
-     * shopId：紐付けたい取引ID
-     * displayName：看板2行目に表示する名前
-     */
-    public static class BindData {
-        private final String shopId;
-        private final String displayName;
+    public enum Mode {
+        NEW_BIND,      // 新規bind
+        RENAME_ONLY,    // 表示名だけ変更]
+        UNBIND
+    }
 
-        public BindData(String shopId, String displayName) {
+    // 内部データクラス
+    public static class BindSession {
+        public final Mode mode;
+        public final String shopId;       // NEW_BIND用（RENAME時はnull）
+        public final String displayName;  // 新しい表示名
+        public final BukkitTask timeoutTask;
+
+        public BindSession(Mode mode, String shopId, String displayName, BukkitTask timeoutTask) {
+            this.mode = mode;
             this.shopId = shopId;
             this.displayName = displayName;
-        }
-
-        public String getShopId() {
-            return shopId;
-        }
-
-        public String getDisplayName() {
-            return displayName;
+            this.timeoutTask = timeoutTask;
         }
     }
 
-    // ===== 誰がBindモード中かの記憶 =====
-    // Key: プレイヤーUUID / Value: BindData
-    private static final Map<UUID, BindData> bindMap = new HashMap<>();
+    private static final Map<UUID, BindSession> sessions = new HashMap<>();
 
-    /**
-     * 🔥 Bindモード開始
-     */
-    public static void set(Player player, String shopId, String displayName) {
-        bindMap.put(player.getUniqueId(), new BindData(shopId, displayName));
+    private static final long TIMEOUT_TICKS = 20L * 60; // 60秒
+
+    // ===== 新規bind開始 =====
+    public static void setNewBind(Player player, String shopId, String displayName) {
+        cancelExisting(player);
+
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(
+                ToriSmpShop.getInstance(),
+                () -> onTimeout(player),
+                TIMEOUT_TICKS
+        );
+        sessions.put(player.getUniqueId(), new BindSession(
+                Mode.NEW_BIND, shopId, displayName, task
+        ));
     }
 
-    /**
-     * 🌅 今Bindモード中か？
-     */
-    public static boolean isInBindMode(Player player) {
-        return bindMap.containsKey(player.getUniqueId());
+    // ===== 表示名変更モード開始 =====
+    public static void setRenameOnly(Player player, String newName) {
+        cancelExisting(player);
+
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(
+                ToriSmpShop.getInstance(),
+                () -> onTimeout(player),
+                TIMEOUT_TICKS
+        );
+
+        sessions.put(player.getUniqueId(), new BindSession(
+                Mode.RENAME_ONLY, null, newName, task
+        ));
     }
 
-    /**
-     * 🔗 Bindデータ取得
-     */
-    public static BindData get(Player player) {
-        return bindMap.get(player.getUniqueId());
+    // ===== モード確認 =====
+    public static boolean isBinding(Player player) {
+        return sessions.containsKey(player.getUniqueId());
     }
 
-    /**
-     * ❌ Bindモード解除
-     */
+    public static Mode getMode(Player player) {
+        BindSession session = sessions.get(player.getUniqueId());
+        return session == null ? null : session.mode;
+    }
+
+    public static String getShopId(Player player) {
+        BindSession session = sessions.get(player.getUniqueId());
+        return session == null ? null : session.shopId;
+    }
+
+    public static String getDisplayName(Player player) {
+        BindSession session = sessions.get(player.getUniqueId());
+        return session == null ? null : session.displayName;
+    }
+
+    // ===== クリア =====
     public static void clear(Player player) {
-        bindMap.remove(player.getUniqueId());
+        BindSession session = sessions.remove(player.getUniqueId());
+        if (session != null && session.timeoutTask != null) {
+            session.timeoutTask.cancel();
+        }
+    }
+
+    // ===== 既存セッションをキャンセル（新規開始時に呼ぶ）=====
+    private static void cancelExisting(Player player) {
+        BindSession existing = sessions.remove(player.getUniqueId());
+        if (existing != null && existing.timeoutTask != null) {
+            existing.timeoutTask.cancel();
+        }
+    }
+
+    // ===== タイムアウト時の処理 =====
+    private static void onTimeout(Player player) {
+        BindSession session = sessions.remove(player.getUniqueId());
+        if (session == null) return;
+
+        if (player.isOnline()) {
+            player.sendMessage(Component.text("§e⏰ Bindモードがタイムアウトしたよ〜（60秒経過）"));
+            player.sendMessage(Component.text("§7もう一度やり直してね〜🌅"));
+        }
     }
 
     /**
-     * 🧹 全員のBindモードをクリア（サーバー停止時とかに使うやつ）
+     * 🗑️ Unbindモード開始
      */
-    public static void clearAll() {
-        bindMap.clear();
+    public static void setUnbind(Player player) {
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(
+                ToriSmpShop.getInstance(),
+                () -> onTimeout(player),
+                TIMEOUT_TICKS
+        );
+        BindSession session = new BindSession(Mode.UNBIND, null, null,task);
+        sessions.put(player.getUniqueId(), session);
     }
 }
