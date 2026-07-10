@@ -3,12 +3,9 @@ package jp.matatabi.torismpshop.data;
 
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.enchantments.Enchantment;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 商品（トレード）1個を表すクラス
@@ -109,22 +106,74 @@ public class ShopData {
 
     /**
      * TradeItem → Map（YAML書き出し用）
+     * 🌌 matchMode / tagKey / tagValue も保存
      */
     private static Map<String, Object> tradeItemToMap(TradeItem item) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("material", item.getMaterial().name());
         map.put("amount", item.getAmount());
+
+// 🌌 デフォ状態（何もチェックしない）なら書き出さない → yml スッキリ✨
+
+        // ===== エンチャ判定 =====
+        if (item.isCheckEnchant() && !item.getRequiredEnchants().isEmpty()) {
+            map.put("checkEnchant", true);
+            Map<String, Integer> enchMap = new HashMap<>();
+            for (Map.Entry<Enchantment, Integer> e : item.getRequiredEnchants().entrySet()) {
+                // Enchantment を "minecraft:sharpness" みたいな文字列に変換
+                enchMap.put(e.getKey().getKey().toString(), e.getValue());
+            }
+            map.put("requiredEnchants", enchMap);
+        }
+
+        // ===== カスタム名判定 =====
+        if (item.isCheckCustomName() && item.getRequiredCustomName() != null) {
+            map.put("checkCustomName", true);
+            map.put("requiredCustomName", item.getRequiredCustomName());
+        }
+
+        // ===== タグ判定（将来用）=====
+        if (item.isCheckTag()) {
+            map.put("checkTag", true);
+            if (item.getTagKey() != null)   map.put("tagKey", item.getTagKey());
+            if (item.getTagValue() != null) map.put("tagValue", item.getTagValue());
+        }
         return map;
     }
 
     /**
      * Map → TradeItem（YAML読み込み用）
+     * 🌌 後方互換：matchMode 無ければ MATERIAL_ONLY 扱い
      */
     private static TradeItem mapToTradeItem(Map<?, ?> map) {
         String matName = (String) map.get("material");
-        int amount = (int) map.get("amount");
+        int amount = ((Number) map.get("amount")).intValue();
         Material mat = Material.valueOf(matName);
-        return new TradeItem(mat, amount);
+
+        // 🌅 まず基本コンストラクタで作る（既存互換）
+        TradeItem item = new TradeItem(mat, amount);
+
+        // 🌌 matchMode が保存されてれば読み込む
+        Object modeObj = map.get("matchMode");
+        if (modeObj != null) {
+            try {
+                item.setMatchMode(TradeItem.MatchMode.valueOf(modeObj.toString()));
+            } catch (IllegalArgumentException e) {
+                // 不正な値ならデフォ扱い（何もしない）
+            }
+        }
+        // 🌌 tagKey / tagValue
+        Object keyObj = map.get("tagKey");
+        if (keyObj != null) {
+            item.setTagKey(keyObj.toString());
+        }
+
+        Object valObj = map.get("tagValue");
+        if (valObj != null) {
+            item.setTagValue(valObj.toString());
+        }
+
+        return item;
     }
 
     /**

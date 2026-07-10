@@ -139,8 +139,8 @@ public class AdminShopCommand {
                                 )
                         )
                 )
-                .then(Commands.literal("unbind"))
-                .requires(source -> source.getSender().hasPermission("torismpshop.torishop.unbind"))
+                .then(Commands.literal("unbind")
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.unbind"))
                         .executes(ctx -> {
                             if (!(ctx.getSource().getSender() instanceof Player player)) {
                                 ctx.getSource().getSender().sendMessage(
@@ -162,9 +162,9 @@ public class AdminShopCommand {
                                     "§8※ 自分の看板しか解除できないよ"
                             ));
 
-                            MainMenuGui.open(player);
                             return Command.SINGLE_SUCCESS;
                         })
+                )
                 .then(Commands.literal("gui")
                         .requires(source -> source.getSender().hasPermission("torismpshop.torishop.gui"))
                         .executes(ctx -> {
