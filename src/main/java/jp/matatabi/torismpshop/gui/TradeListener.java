@@ -86,7 +86,7 @@ public class TradeListener implements Listener {
 
         // ToDo ymlで管理予定
         // ===== 自分の取引は実行できないようにする（お好み）=====
-        if (shop.getOwnerUuid().equals(player.getUniqueId().toString())) {
+        if (shop.getOwnerUuid().equals(player.getUniqueId())) {
             player.sendMessage("§c自分の取引は実行できないよ〜🙈");
             return;
         }
@@ -95,18 +95,21 @@ public class TradeListener implements Listener {
         List<TradeItem> payItems = shop.getPayItems();
         List<TradeItem> receiveItems = shop.getReceiveItems();
 
-        // ===== ① 支払い分を持っているかチェック =====
-        Map<Material, Integer> needed = new HashMap<>();
+        // ===== ① 支払い分を持っているかチェック（TradeItem単位）=====
         for (TradeItem ti : payItems) {
-            needed.merge(ti.getMaterial(), ti.getAmount(), Integer::sum);
-        }
-
-        for (Map.Entry<Material, Integer> e : needed.entrySet()) {
-            int have = countMaterial(inv, e.getKey());
-            if (have < e.getValue()) {
+            int have = countTradeItem(inv, ti);
+            if (have < ti.getAmount()) {
                 player.sendMessage("§c§l✖ 支払うアイテムが足りないよ！");
-                player.sendMessage("§7必要: §f" + e.getKey().name() + " x " + e.getValue()
-                        + " §7(§c不足 " + (e.getValue() - have) + "個§7)");
+
+                // 🌌 表示メッセージも MatchMode で分岐
+                String label = ti.getMaterial().name();
+                if (ti.getMatchMode() == TradeItem.MatchMode.HAS_TAG) {
+                    label += " [タグ: " + ti.getTagKey()
+                            + (ti.getTagValue() != null ? "=" + ti.getTagValue() : "") + "]";
+                }
+
+                player.sendMessage("§7必要: §f" + label + " x " + ti.getAmount()
+                        + " §7(§c不足 " + (ti.getAmount() - have) + "個§7)");
                 return;
             }
         }
@@ -139,11 +142,10 @@ public class TradeListener implements Listener {
             return;
         }
 
-        // ===== ③ 支払い分を削除 =====
-        for (Map.Entry<Material, Integer> e : needed.entrySet()) {
-            removeMaterial(inv, e.getKey(), e.getValue());
+        // ===== ③ 支払い分を削除（TradeItem単位）=====
+        for (TradeItem ti : payItems) {
+            removeTradeItem(inv, ti, ti.getAmount());
         }
-
         // ===== ④ 受け取り分を付与 =====
         for (TradeItem ti : receiveItems) {
             int remaining = ti.getAmount();
@@ -174,12 +176,64 @@ public class TradeListener implements Listener {
     }
 
     /**
+     * 🌌 ItemStack が TradeItem の条件を満たすか判定
+     * MatchMode に応じて分岐する
+     */
+    private boolean matchesTradeItem(ItemStack item, TradeItem ti) {
+        if (item == null || item.getType() == Material.AIR) return false;
+        if (item.getType() != ti.getMaterial()) return false;
+
+        switch (ti.getMatchMode()) {
+            case MATERIAL_ONLY:
+                return true;
+
+            case HAS_TAG:
+                return hasTag(item, ti.getTagKey(), ti.getTagValue());
+
+            case EXACT:
+                // 将来実装（今は Material 一致で通す）
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * 🌌 PDC タグを持ってるかチェック
+     * tagValue が null なら「キーが存在するだけでOK」
+     */
+    private boolean hasTag(ItemStack item, String tagKey, String tagValue) {
+        if (tagKey == null) return false;
+        if (!item.hasItemMeta()) return false;
+
+        org.bukkit.persistence.PersistentDataContainer pdc =
+                item.getItemMeta().getPersistentDataContainer();
+
+        // tagKey は "namespace:key" 形式を想定
+        String[] parts = tagKey.split(":", 2);
+        if (parts.length != 2) return false;
+
+        org.bukkit.NamespacedKey key = new org.bukkit.NamespacedKey(parts[0], parts[1]);
+
+        // STRING型で判定（他の型は将来対応）
+        if (!pdc.has(key, org.bukkit.persistence.PersistentDataType.STRING)) {
+            return false;
+        }
+
+        // tagValue が null → キー存在するだけでOK
+        if (tagValue == null) return true;
+        String actual = pdc.get(key, org.bukkit.persistence.PersistentDataType.STRING);
+        return tagValue.equals(actual);
+    }
+
+    /**
      * 🌅 インベントリ内の指定Materialの合計数を数える
      */
-    private int countMaterial(PlayerInventory inv, Material mat) {
+    private int countTradeItem(PlayerInventory inv, TradeItem ti) {
         int count = 0;
         for (ItemStack item : inv.getStorageContents()) {
-            if (item != null && item.getType() == mat) {
+            if (matchesTradeItem(item, ti)) {
                 count += item.getAmount();
             }
         }
@@ -189,13 +243,13 @@ public class TradeListener implements Listener {
     /**
      * 🌅 インベントリから指定Materialを指定数だけ削除
      */
-    private void removeMaterial(PlayerInventory inv, Material mat, int amount) {
+    private void removeTradeItem(PlayerInventory inv, TradeItem ti, int amount) {
         int remaining = amount;
         ItemStack[] contents = inv.getStorageContents();
         for (int i = 0; i < contents.length; i++) {
             if (remaining <= 0) break;
             ItemStack item = contents[i];
-            if (item != null && item.getType() == mat) {
+            if (matchesTradeItem(item, ti)) {
                 int itemAmount = item.getAmount();
                 if (itemAmount <= remaining) {
                     remaining -= itemAmount;
@@ -207,6 +261,7 @@ public class TradeListener implements Listener {
             }
         }
     }
+
 
     /**
      * 🌅 GUI閉じたら記憶をクリア
