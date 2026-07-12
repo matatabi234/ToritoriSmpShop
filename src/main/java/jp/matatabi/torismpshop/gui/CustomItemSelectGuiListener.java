@@ -9,10 +9,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 
-/**
- * 🌅 アイテム追加GUI（ItemAddGui）のクリック処理
- */
-public class ItemAddListener implements Listener {
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+public class CustomItemSelectGuiListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
@@ -20,9 +21,16 @@ public class ItemAddListener implements Listener {
         Component title = event.getView().title();
         if (title == null) return;
 
+        // 2. プレイヤーのインベントリがクリックされた場合
+        if (event.getClickedInventory() == event.getView().getBottomInventory()) {
+            // ここで true をセットしなければ、プレイヤーは自由にインベントリ操作が可能
+            // つまり、ここは何も書かなくてOK（またはイベントをキャンセルしない）
+            return;
+        }
+
         String titleStr = PlainTextComponentSerializer.plainText().serialize(title);
         // 🌅 追加モード / 編集モード どっちも受け付ける
-        if (!titleStr.contains("➕ アイテム追加") && !titleStr.contains("✏️ アイテム編集")) return;
+        if (!titleStr.contains("➕ カスタムアイテム追加")) return;
 
         // ===== 操作キャンセル =====
         event.setCancelled(true);
@@ -31,14 +39,18 @@ public class ItemAddListener implements Listener {
 
         int slot = event.getRawSlot();
 
-        // ===== 🎁 アイテム設定ボタン =====
-        if (slot == ItemAddGui.SLOT_ITEM) {
-            // アイテム選択モードON
-            NewItemSession.startSelecting(player);
-            // アイテム選択GUIを開く
-            ItemSelectGui.open(player, 0);
-            return;
+        if (slot == CustomItemSelectGui.SLOT_ITEM) {
+            event.setCancelled(false);
         }
+
+//        // ===== 🎁 アイテム設定ボタン =====
+//        if (slot == ItemAddGui.SLOT_ITEM) {
+//            // アイテム選択モードON
+//            NewItemSession.startSelecting(player);
+//            // アイテム選択GUIを開く
+//            ItemSelectGui.open(player, 0);
+//            return;
+//        }
 
         // ===== 🔢 個数設定ボタン =====
         if (slot == ItemAddGui.SLOT_AMOUNT) {
@@ -52,16 +64,25 @@ public class ItemAddListener implements Listener {
 
         // ===== ✅ 決定ボタン =====
         if (slot == ItemAddGui.SLOT_CONFIRM) {
-            ItemStack item = NewItemSession.getTempItem(player);
-            if (item == null) return;
-            Material mat = item.getType();
+            // 1. GUIのアイテム設定スロットからItemStackを直接取得する
+            ItemStack itemInSlot = event.getInventory().getItem(CustomItemSelectGui.SLOT_ITEM);
+
+            // 2. アイテムが置かれているか確認し、安全なクローンを保存する
+            if (itemInSlot != null && itemInSlot.getType() != Material.AIR) {
+                ItemStack itemToSave = itemInSlot.clone(); // NBTなど全て含むItemStackを保存
+                NewItemSession.setTempItem(player, itemToSave);
+            } else {
+                player.sendMessage("§c❌ アイテムスロットにアイテムを置いてね！");
+                return;
+            }
+
             int amount = NewItemSession.getTempAmount(player);
 
             int editIndex = NewItemSession.getEditingIndex(player);
             boolean isEditing = (editIndex >= 0);
 
-            // 未設定チェック
-            if (mat == null) {
+            ItemStack confirmItem = event.getInventory().getItem(ItemAddGui.SLOT_CONFIRM);
+            if (confirmItem == null || confirmItem.getType() == Material.AIR) {
                 player.sendMessage("§c❌ アイテムを選んでね！");
                 return;
             }
@@ -81,15 +102,6 @@ public class ItemAddListener implements Listener {
             int currentTotal = (target == NewItemSession.EditTarget.PAY)
                     ? NewItemSession.getPayTotalAmount(player)
                     : NewItemSession.getReceiveTotalAmount(player);
-            // 🌅 編集モードなら「元の個数」を除いて計算する
-            if (isEditing) {
-                var list = (target == NewItemSession.EditTarget.PAY)
-                        ? NewItemSession.getPayItems(player)
-                        : NewItemSession.getReceiveItems(player);
-                if (editIndex < list.size()) {
-                    currentTotal -= list.get(editIndex).getAmount();
-                }
-            }
             if (currentTotal + amount > TradeItemListGui.MAX_TOTAL_AMOUNT) {
                 player.sendMessage("§c❌ 合計個数が上限（"
                         + TradeItemListGui.MAX_TOTAL_AMOUNT + "個）を超えちゃうよ！");
@@ -97,23 +109,29 @@ public class ItemAddListener implements Listener {
                 return;
             }
 
+            // 1. まず、処理に必要な変数を準備
+            ItemStack item = NewItemSession.getTempItem(player); // 選択済みのアイテムを取得
+            if (item == null) {
+                player.sendMessage("§c❌ アイテムが選択されていないよ！");
+                return;
+            }
+
+            // 2. どちらのモードでも同じ ItemStack と amount を渡せるようにする
             if (isEditing) {
-                // 🌅 更新モード: 'item' という名前が既に外で使われているなら、別の名前にする
-                ItemStack updateItem = new ItemStack(mat);
-                NewItemSession.updateItem(player, target, editIndex, updateItem, amount);
-                player.sendMessage("§a✅ " + mat.name() + " x " + amount + " に更新したよ！🌅");
+                // 🌅 更新モード
+                NewItemSession.updateItem(player, target, editIndex, item, amount);
+                player.sendMessage("§a✅ アイテムを " + amount + " 個に更新したよ！🌅");
             } else {
                 // 🌅 新規追加モード
-                // ここも ItemStack に統一するなら以下のように
-                ItemStack newItem = new ItemStack(mat);
-                NewItemSession.addItem(player, target, newItem, amount);
-                player.sendMessage("§a✅ " + mat.name() + " x " + amount + " を追加したよ！🌅");
+                NewItemSession.addItem(player, target, item, amount);
+                player.sendMessage("§a✅ アイテムを " + amount + " 個追加したよ！🌅");
             }
 
             // ===== 一時保存クリア =====
             NewItemSession.clearTempMaterial(player);
             NewItemSession.clearTempAmount(player);
             NewItemSession.clearEditingIndex(player);  // 🌅 編集モードも解除！
+            NewItemSession.clearTempItem(player);
 
             // ===== リストGUIに戻る =====
             TradeItemListGui.open(player, target);
@@ -135,5 +153,11 @@ public class ItemAddListener implements Listener {
             }
             return;
         }
+    }
+
+    private static final Map<UUID, Boolean> CustomMode = new HashMap<>();
+
+    public static boolean isCustomMode(Player player) {
+        return CustomMode.getOrDefault(player.getUniqueId(), false);
     }
 }

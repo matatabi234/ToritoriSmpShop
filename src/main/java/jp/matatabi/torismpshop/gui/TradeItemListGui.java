@@ -2,8 +2,8 @@ package jp.matatabi.torismpshop.gui;
 
 import jp.matatabi.torismpshop.data.TradeItem;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -41,6 +41,7 @@ public class TradeItemListGui {
 
     /**
      * GUI を開く
+     *
      * @param player プレイヤー
      * @param target 支払い or 受取
      */
@@ -158,20 +159,28 @@ public class TradeItemListGui {
     private static ItemStack createDisplayItem(TradeItem tradeItem, int index, Player player) {
         boolean isDeleteMode = NewItemSession.isDeleteMode(player);
 
-        ItemStack item = new ItemStack(tradeItem.getMaterial(), tradeItem.getAmount());
-        ItemMeta meta = item.getItemMeta();
+        // 1. 保存されたItemStackをクローンして使用する
+        ItemStack item = tradeItem.getItemStack().clone();
+        item.setAmount(tradeItem.getAmount()); // 個数を再設定
 
-        // 🌅 削除モード時は赤色 + 表記変更
-        if (isDeleteMode) {
-            meta.displayName(Component.text("§c§l🗑️ " + tradeItem.getMaterial().name() + " §7x " + tradeItem.getAmount())
-                    .decoration(TextDecoration.ITALIC, false));
-        } else {
-            meta.displayName(Component.text("§f§l" + tradeItem.getMaterial().name() + " §7x " + tradeItem.getAmount())
-                    .decoration(TextDecoration.ITALIC, false));
-        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) meta = Bukkit.getItemFactory().getItemMeta(item.getType());
+
+        // 2. 表示名の取得（カスタム名があればそれを使い、なければ素材名を使う）
+        String displayName = (meta.hasDisplayName())
+                ? PlainTextComponentSerializer.plainText().serialize(meta.displayName())
+                : tradeItem.getItemStack().getType().name();
+
+        // 🌅 削除モード時は赤色、通常時は白/金などで強調
+        String color = isDeleteMode ? "§c§l" : "§f§l";
+        meta.displayName(Component.text(color + "🎁 " + displayName + " §7x " + tradeItem.getAmount())
+                .decoration(TextDecoration.ITALIC, false));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
+
+        // 元々のアイテムが持っていたLoreを引き継ぐ場合はここで保持
+        // 必要なら既存のlore.addAll(meta.lore())などを行う
 
         if (isDeleteMode) {
             lore.add(Component.text("§c▶ クリックで削除").decoration(TextDecoration.ITALIC, false));

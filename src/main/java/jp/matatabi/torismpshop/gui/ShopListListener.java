@@ -2,8 +2,6 @@ package jp.matatabi.torismpshop.gui;
 
 import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.ShopStorage;
-import jp.matatabi.torismpshop.gui.ShopListGui;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -108,6 +106,7 @@ public class ShopListListener implements Listener {
             return;
         }
     }
+
     /**
      * GUIを閉じたらセッションクリア
      */

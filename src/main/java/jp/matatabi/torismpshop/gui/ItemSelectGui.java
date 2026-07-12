@@ -13,7 +13,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ItemSelectGui {
 
@@ -41,6 +44,7 @@ public class ItemSelectGui {
     public static void unmarkSwitching(Player player) {
         switching.remove(player.getUniqueId());
     }
+
     /**
      * 表示可能な全アイテムを取得（キャッシュあり）
      */
@@ -125,6 +129,13 @@ public class ItemSelectGui {
             ));
         }
 
+        // 46: カスタムアイテム
+        inv.setItem(46, createButton(
+                Material.ARROW,
+                Component.text("カスタムアイテム", NamedTextColor.YELLOW),
+                Component.text("エンチャントなど", NamedTextColor.GRAY)
+        ));
+
         // 🌅 47: 🔍 検索ボタン
         inv.setItem(47, createButton(
                 Material.SPYGLASS,
@@ -195,6 +206,7 @@ public class ItemSelectGui {
         item.setItemMeta(meta);
         return item;
     }
+
     /**
      * サーバー起動時に一度だけ呼ぶ。
      * items.yml があれば読み込み、無ければ生成する。

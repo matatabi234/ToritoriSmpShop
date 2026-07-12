@@ -1,5 +1,6 @@
 package jp.matatabi.torismpshop.gui;
 
+import jp.matatabi.torismpshop.data.PlayerSettingsManager;
 import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.ShopStorage;
 import jp.matatabi.torismpshop.data.TradeItem;
@@ -12,11 +13,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -84,11 +83,15 @@ public class TradeListener implements Listener {
             return;
         }
 
-        // ToDo ymlで管理予定
-        // ===== 自分の取引は実行できないようにする（お好み）=====
+        // 🌅 自分の取引は実行できないようにする（ただし、設定で許可されている場合は例外）
         if (shop.getOwnerUuid().equals(player.getUniqueId())) {
-            player.sendMessage("§c自分の取引は実行できないよ〜🙈");
-            return;
+            // 💡 設定を取得（PlayerSettingsManager がなければ false を返すようにしておく）
+            boolean canSelfTrade = PlayerSettingsManager.get(player.getUniqueId()).isAllowSelfTrade();
+
+            if (!canSelfTrade) {
+                player.sendMessage("§c自分の取引は実行できないよ〜🙈 (設定で許可すればOK)");
+                return;
+            }
         }
 
         PlayerInventory inv = player.getInventory();
@@ -97,9 +100,9 @@ public class TradeListener implements Listener {
 
         // ===== ① 支払い分を持っているかチェック（TradeItem単位）=====
         for (TradeItem ti : payItems) {
-            int have = countTradeItem(inv, ti);
+            int have = countSatisfyingItems(inv, ti);
             if (have < ti.getAmount()) {
-                player.sendMessage("§c§l✖ 支払うアイテムが足りないよ！");
+                player.sendMessage("§c§l✖ 必要な条件を満たすアイテムが足りないよ！");
 
                 // 🌌 表示メッセージも MatchMode で分岐
                 String label = ti.getMaterial().name();
@@ -142,10 +145,30 @@ public class TradeListener implements Listener {
             return;
         }
 
-        // ===== ③ 支払い分を削除（TradeItem単位）=====
+        // ===== ③ 支払い分を削除（修正版）=====
         for (TradeItem ti : payItems) {
-            removeTradeItem(inv, ti, ti.getAmount());
+            int remainingToRemove = ti.getAmount();
+            ItemStack[] contents = inv.getContents();
+
+            for (int i = 0; i < contents.length; i++) {
+                ItemStack item = contents[i];
+                if (item == null || item.getType() == Material.AIR) continue;
+
+                // 条件を満たすアイテムなら削除対象にする
+                if (TradeGui.isSatisfiedBy(item, ti.getItemStack())) {
+                    int amount = item.getAmount();
+                    if (amount <= remainingToRemove) {
+                        remainingToRemove -= amount;
+                        inv.setItem(i, null); // アイテムを消去
+                    } else {
+                        item.setAmount(amount - remainingToRemove);
+                        remainingToRemove = 0;
+                    }
+                }
+                if (remainingToRemove <= 0) break;
+            }
         }
+
         // ===== ④ 受け取り分を付与 =====
         for (TradeItem ti : receiveItems) {
             int remaining = ti.getAmount();
@@ -179,24 +202,15 @@ public class TradeListener implements Listener {
      * 🌌 ItemStack が TradeItem の条件を満たすか判定
      * MatchMode に応じて分岐する
      */
-    private boolean matchesTradeItem(ItemStack item, TradeItem ti) {
-        if (item == null || item.getType() == Material.AIR) return false;
-        if (item.getType() != ti.getMaterial()) return false;
+    private boolean matchesTradeItem(ItemStack playerItem, TradeItem tradeItem) {
+        if (playerItem == null || playerItem.getType() == Material.AIR) return false;
 
-        switch (ti.getMatchMode()) {
-            case MATERIAL_ONLY:
-                return true;
+        // 💡 以前は Material 比較でしたが、ItemStack.isSimilar を使います
+        // isSimilar は、エンチャント、カスタム名、Lore、NBT(PDC)まで完全に比較します！
+        ItemStack target = tradeItem.getItemStack();
 
-            case HAS_TAG:
-                return hasTag(item, ti.getTagKey(), ti.getTagValue());
-
-            case EXACT:
-                // 将来実装（今は Material 一致で通す）
-                return true;
-
-            default:
-                return false;
-        }
+        // 素材が一致 かつ メタデータ(エンチャント等)が一致しているか
+        return playerItem.isSimilar(target) && playerItem.getAmount() >= tradeItem.getAmount();
     }
 
     /**
@@ -276,5 +290,18 @@ public class TradeListener implements Listener {
         if (event.getPlayer() instanceof Player player) {
             TradeGui.clearViewingShopId(player);
         }
+    }
+
+    private int countSatisfyingItems(PlayerInventory inv, TradeItem ti) {
+        int count = 0;
+        for (ItemStack item : inv.getContents()) {
+            if (item == null || item.getType() == Material.AIR) continue;
+
+            // 💡 ここで以前作った「条件包含判定」を呼び出す
+            if (TradeGui.isSatisfiedBy(item, ti.getItemStack())) {
+                count += item.getAmount();
+            }
+        }
+        return count;
     }
 }

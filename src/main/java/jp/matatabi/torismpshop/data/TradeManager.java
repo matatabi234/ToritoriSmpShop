@@ -11,6 +11,7 @@ public class TradeManager {
 
     /**
      * 新しい取引を作成する
+     *
      * @param id 取引ID
      * @return 作成した Trade（すでに存在してたら null）
      */
@@ -25,6 +26,7 @@ public class TradeManager {
 
     /**
      * 取引を取得する
+     *
      * @param id 取引ID
      * @return 見つかれば Trade、無ければ null
      */
@@ -34,6 +36,7 @@ public class TradeManager {
 
     /**
      * 取引を削除する
+     *
      * @param id 取引ID
      * @return 削除成功なら true
      */

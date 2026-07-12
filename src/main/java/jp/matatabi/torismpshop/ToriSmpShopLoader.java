@@ -3,7 +3,6 @@ package jp.matatabi.torismpshop;
 import io.papermc.paper.plugin.loader.PluginClasspathBuilder;
 import io.papermc.paper.plugin.loader.PluginLoader;
 import io.papermc.paper.plugin.loader.library.impl.MavenLibraryResolver;
-import org.eclipse.aether.artifact.DefaultArtifact;
 import org.jetbrains.annotations.NotNull;
 
 public class ToriSmpShopLoader implements PluginLoader {

@@ -8,11 +8,15 @@ import org.bukkit.NamespacedKey;
  */
 public class SignKeys {
 
-    /** 取引ID保存用 */
+    /**
+     * 取引ID保存用
+     */
     public static final NamespacedKey SHOP_ID =
             new NamespacedKey(ToriSmpShop.getInstance(), "shop_id");
 
-    /** 表示名保存用 */
+    /**
+     * 表示名保存用
+     */
     public static final NamespacedKey DISPLAY_NAME =
             new NamespacedKey(ToriSmpShop.getInstance(), "display_name");
 }

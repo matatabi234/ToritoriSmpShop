@@ -1,9 +1,6 @@
-
 package jp.matatabi.torismpshop.data;
 
-import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.enchantments.Enchantment;
 
 import java.util.*;
 
@@ -53,6 +50,7 @@ public class ShopData {
     public List<TradeItem> getReceiveItems() {
         return receiveItems;
     }
+
     /**
      * YAML保存用に Map に変換
      */
@@ -63,20 +61,15 @@ public class ShopData {
         map.put("owner_uuid", ownerUuid.toString());
         map.put("created_at", createdAt);
 
-        List<Map<String, Object>> payList = new ArrayList<>();
-        for (TradeItem t : payItems) payList.add(tradeItemToMap(t));
-        map.put("pay", payList);
-
-        List<Map<String, Object>> receiveList = new ArrayList<>();
-        for (TradeItem t : receiveItems) receiveList.add(tradeItemToMap(t));
-        map.put("receive", receiveList);
+        // 💡 既存のリストを Map に変換するループをシンプルにする
+        map.put("pay", payItems);       // ConfigurationSerializable が自動でリストをMap化する
+        map.put("receive", receiveItems);
 
         return map;
     }
 
     /**
-
-     /**
+     * /**
      * YAMLから読み込み用（後で /torishop reload で使う）
      */
     public static ShopData fromSection(ConfigurationSection section) {
@@ -85,17 +78,9 @@ public class ShopData {
         UUID ownerUuid = UUID.fromString(section.getString("owner_uuid"));
         long createdAt = section.getLong("created_at");
 
-        List<TradeItem> payItems = new ArrayList<>();
-        List<Map<?, ?>> payList = section.getMapList("pay");
-        for (Map<?, ?> m : payList) {
-            payItems.add(mapToTradeItem(m));
-        }
-
-        List<TradeItem> receiveItems = new ArrayList<>();
-        List<Map<?, ?>> receiveList = section.getMapList("receive");
-        for (Map<?, ?> m : receiveList) {
-            receiveItems.add(mapToTradeItem(m));
-        }
+        // 💡 リストとして取得するだけで、TradeItem型として自動復元されます
+        List<TradeItem> payItems = (List<TradeItem>) section.getList("pay", new ArrayList<>());
+        List<TradeItem> receiveItems = (List<TradeItem>) section.getList("receive", new ArrayList<>());
 
         return new ShopData(id, ownerName, ownerUuid, createdAt, payItems, receiveItems);
     }
@@ -105,83 +90,11 @@ public class ShopData {
     // ===================================================
 
     /**
-     * TradeItem → Map（YAML書き出し用）
-     * 🌌 matchMode / tagKey / tagValue も保存
-     */
-    private static Map<String, Object> tradeItemToMap(TradeItem item) {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("material", item.getMaterial().name());
-        map.put("amount", item.getAmount());
-
-// 🌌 デフォ状態（何もチェックしない）なら書き出さない → yml スッキリ✨
-
-        // ===== エンチャ判定 =====
-        if (item.isCheckEnchant() && !item.getRequiredEnchants().isEmpty()) {
-            map.put("checkEnchant", true);
-            Map<String, Integer> enchMap = new HashMap<>();
-            for (Map.Entry<Enchantment, Integer> e : item.getRequiredEnchants().entrySet()) {
-                // Enchantment を "minecraft:sharpness" みたいな文字列に変換
-                enchMap.put(e.getKey().getKey().toString(), e.getValue());
-            }
-            map.put("requiredEnchants", enchMap);
-        }
-
-        // ===== カスタム名判定 =====
-        if (item.isCheckCustomName() && item.getRequiredCustomName() != null) {
-            map.put("checkCustomName", true);
-            map.put("requiredCustomName", item.getRequiredCustomName());
-        }
-
-        // ===== タグ判定（将来用）=====
-        if (item.isCheckTag()) {
-            map.put("checkTag", true);
-            if (item.getTagKey() != null)   map.put("tagKey", item.getTagKey());
-            if (item.getTagValue() != null) map.put("tagValue", item.getTagValue());
-        }
-        return map;
-    }
-
-    /**
-     * Map → TradeItem（YAML読み込み用）
-     * 🌌 後方互換：matchMode 無ければ MATERIAL_ONLY 扱い
-     */
-    private static TradeItem mapToTradeItem(Map<?, ?> map) {
-        String matName = (String) map.get("material");
-        int amount = ((Number) map.get("amount")).intValue();
-        Material mat = Material.valueOf(matName);
-
-        // 🌅 まず基本コンストラクタで作る（既存互換）
-        TradeItem item = new TradeItem(mat, amount);
-
-        // 🌌 matchMode が保存されてれば読み込む
-        Object modeObj = map.get("matchMode");
-        if (modeObj != null) {
-            try {
-                item.setMatchMode(TradeItem.MatchMode.valueOf(modeObj.toString()));
-            } catch (IllegalArgumentException e) {
-                // 不正な値ならデフォ扱い（何もしない）
-            }
-        }
-        // 🌌 tagKey / tagValue
-        Object keyObj = map.get("tagKey");
-        if (keyObj != null) {
-            item.setTagKey(keyObj.toString());
-        }
-
-        Object valObj = map.get("tagValue");
-        if (valObj != null) {
-            item.setTagValue(valObj.toString());
-        }
-
-        return item;
-    }
-
-    /**
      * Trade（作成中データ）から ShopData（保存用データ）に変換
      *
-     * @param trade      変換元の Trade
-     * @param ownerName  保存するプレイヤー名
-     * @param ownerUuid  保存するプレイヤーUUID
+     * @param trade     変換元の Trade
+     * @param ownerName 保存するプレイヤー名
+     * @param ownerUuid 保存するプレイヤーUUID
      * @return 保存用の ShopData
      */
     public static ShopData fromTrade(Trade trade, String ownerName, UUID ownerUuid) {
@@ -210,5 +123,37 @@ public class ShopData {
                 payItems,
                 receiveItems
         );
+    }
+
+    public void save(ConfigurationSection section) {
+        // 基本情報はそのまま
+        section.set("id", id);
+        section.set("owner", ownerName);
+        section.set("owner_uuid", ownerUuid.toString());
+        section.set("created_at", createdAt);
+
+        // 💡 TradeItemのリストをそのまま保存（Bukkitが自動的にシリアライズします）
+        section.set("pay", payItems);
+        section.set("receive", receiveItems);
+    }
+
+    /**
+     * Map から ShopData を復元する（リロード処理用）
+     */
+    public static ShopData fromMap(Map<String, Object> map) {
+        String id = (String) map.get("id");
+        String ownerName = (String) map.get("owner");
+        UUID ownerUuid = UUID.fromString((String) map.get("owner_uuid"));
+        long createdAt = (long) map.get("created_at");
+
+        // リストを取得（ConfigurationSerializable が自動的に TradeItem に復元してくれます）
+        List<TradeItem> payItems = (List<TradeItem>) map.get("pay");
+        List<TradeItem> receiveItems = (List<TradeItem>) map.get("receive");
+
+        // もし null なら空のリストにする
+        if (payItems == null) payItems = new ArrayList<>();
+        if (receiveItems == null) receiveItems = new ArrayList<>();
+
+        return new ShopData(id, ownerName, ownerUuid, createdAt, payItems, receiveItems);
     }
 }

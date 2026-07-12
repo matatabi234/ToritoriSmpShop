@@ -12,15 +12,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 🌅 アイテム1個を追加するGUI（アイテム / 個数 / 決定）
- * TradeItemListGui の ➕追加ボタンから開かれる
- */
-public class ItemAddGui {
+public class CustomItemSelectGui {
 
-    public static final String TITLE_ADD = "§b➕ アイテム追加";
-    public static final String TITLE_EDIT = "§b✏️ アイテム編集";
-
+    public static final String TITLE = "§b➕ カスタムアイテム追加";
 
     // スロット定数
     public static final int SLOT_ITEM = 11;      // 🎁 アイテム設定
@@ -32,11 +26,8 @@ public class ItemAddGui {
      * GUI を開く
      */
     public static void open(Player player) {
-        // 🌅 編集モードかどうかでタイトル切り替え
-        boolean isEditing = NewItemSession.getEditingIndex(player) >= 0;
-        String title = isEditing ? TITLE_EDIT : TITLE_ADD;
 
-        Inventory gui = Bukkit.createInventory(null, 27, Component.text(title));
+        Inventory gui = Bukkit.createInventory(null, 27, Component.text(TITLE));
 
         // ===== 🎁 アイテム設定 =====
         gui.setItem(SLOT_ITEM, createItemButton(player));
@@ -50,6 +41,22 @@ public class ItemAddGui {
         // ===== ❌ キャンセル =====
         gui.setItem(SLOT_CANCEL, createCancelButton());
 
+        // ガラス板の設定
+        ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemMeta meta = glass.getItemMeta();
+        meta.setDisplayName(" "); // 名前を消す
+        glass.setItemMeta(meta);
+
+        for (int i = 0; i < gui.getSize(); i++) {
+            // 除外対象のスロットかチェック
+            if (i == SLOT_ITEM || i == SLOT_CONFIRM || i == SLOT_CANCEL || i == SLOT_AMOUNT) {
+                continue; // 除外対象ならスキップ
+            }
+
+            // それ以外にガラス板を設置
+            gui.setItem(i, glass);
+        }
+
         player.openInventory(gui);
     }
 
@@ -59,41 +66,19 @@ public class ItemAddGui {
     private static ItemStack createItemButton(Player player) {
         ItemStack tempItem = NewItemSession.getTempItem(player);
 
-        // アイテムが未選択ならバリア、選択済みならクローンを作成
+        // 1. アイテムが未選択ならバリアを表示、選択済みならtempItemのクローンを作成
         ItemStack item;
         if (tempItem == null || tempItem.getType() == Material.AIR) {
             item = new ItemStack(Material.BARRIER);
-        } else {
-            item = tempItem.clone(); // セッションのデータを保護しつつ情報を保持
-        }
-
-        ItemMeta meta = item.getItemMeta();
-
-        // 💡 metaがnullの場合への対策（これでエラーが消えます）
-        if (meta == null) {
-            meta = Bukkit.getItemFactory().getItemMeta(item.getType());
-        }
-
-        // 表示名の設定
-        if (tempItem != null && tempItem.getType() != Material.AIR) {
-            // カスタムアイテムならその名前を表示、なければMaterial名を表示
-            Component displayName = tempItem.hasItemMeta() && tempItem.getItemMeta().hasDisplayName()
-                    ? tempItem.getItemMeta().displayName()
-                    : Component.text("§a§l🎁 アイテム: " + tempItem.getType().name());
-            meta.displayName(displayName.decoration(TextDecoration.ITALIC, false));
-        } else {
+            ItemMeta meta = item.getItemMeta();
             meta.displayName(Component.text("§c§l🎁 アイテム: 未設定")
                     .decoration(TextDecoration.ITALIC, false));
+            item.setItemMeta(meta);
+        } else {
+            // 💡 ここでクローンすることで、エンチャント・カスタム名・Loreを全て引き継ぐ！
+            item = tempItem.clone();
         }
 
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§7取引に使うアイテムを選ぶよ").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("§e▶ クリックで選択").decoration(TextDecoration.ITALIC, false));
-        meta.lore(lore);
-
-        item.setItemMeta(meta);
         return item;
     }
 

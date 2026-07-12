@@ -1,8 +1,8 @@
 package jp.matatabi.torismpshop.gui;
 
+import jp.matatabi.torismpshop.BindModeManager;
 import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.ShopStorage;
-import jp.matatabi.torismpshop.BindModeManager;
 import jp.matatabi.torismpshop.util.SignKeys;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -82,6 +82,7 @@ public class SignBindListener implements Listener {
             TradeGui.open(player, shop);
         }
     }
+
     // ==========================================
     // 🆕 新規Bind処理
     // ==========================================
