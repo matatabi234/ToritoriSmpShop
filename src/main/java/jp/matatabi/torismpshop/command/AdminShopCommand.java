@@ -46,7 +46,7 @@ public class AdminShopCommand {
                             BindGui.open(player);
                             return Command.SINGLE_SUCCESS;
                         })
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.bind"))
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.bind"))
                         .then(Commands.argument("id", StringArgumentType.word())
                                 .then(Commands.argument("displayName", StringArgumentType.greedyString())
                                         .executes(ctx -> {
@@ -141,7 +141,7 @@ public class AdminShopCommand {
                         )
                 )
                 .then(Commands.literal("unbind")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.unbind"))
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.unbind"))
                         .executes(ctx -> {
                             if (!(ctx.getSource().getSender() instanceof Player player)) {
                                 ctx.getSource().getSender().sendMessage(
@@ -180,26 +180,27 @@ public class AdminShopCommand {
                         })
                 )
                 .then(Commands.literal("reload")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.load"))
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.reload"))
                         .executes(ctx -> {
-                            // 🔄 ここで ShopStorage.reload() を呼ぶ
-                            ShopStorage.reload();
-                            ctx.getSource().getSender().sendMessage(
-                                    Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
-                            );
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .executes(ctx -> {
-                            // 🔄 ここで ShopStorage.reload() を呼ぶ
-                            ShopStorage.reload();
-                            ctx.getSource().getSender().sendMessage(
-                                    Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
-                            );
-                            return Command.SINGLE_SUCCESS;
+                            try {
+                                // 🔄 リロード実行
+                                ShopStorage.reload();
+                                ctx.getSource().getSender().sendMessage(
+                                        Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
+                                );
+                            } catch (Exception e) {
+                                // 💡 リロード失敗時にエラーを報告
+                                e.printStackTrace();
+                                ctx.getSource().getSender().sendMessage(
+                                        Component.text("リロード中にエラーが発生したよ！コンソールを確認してね。", NamedTextColor.RED)
+                                );
+                                return 0; // 失敗
+                            }
+                            return Command.SINGLE_SUCCESS; // 成功
                         })
                 )
                 .then(Commands.literal("setself")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.admin"))
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.setself"))
                         .then(Commands.argument("mcid", StringArgumentType.word()) // 文字列として受け取る
                                 .then(Commands.argument("value", BoolArgumentType.bool())
                                         .executes(ctx -> {
@@ -235,7 +236,10 @@ public class AdminShopCommand {
     // ヘルプメッセージを表示するメソッド
     private static void showHelp(CommandSourceStack source) {
         source.getSender().sendMessage(Component.text("=== ToriSmpShop ヘルプ ===", NamedTextColor.GOLD));
-        source.getSender().sendMessage(Component.text("/torishop bind <ID>    - 看板に取引を紐付け", NamedTextColor.GRAY));
-        source.getSender().sendMessage(Component.text("/torishop gui          - 管理画面を開く", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop gui             - 管理画面を開く", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop bind            - 紐づけ画面を開く", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop bind name <名前> - ショップの名前を変更", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop unbind          - 紐づけ画面を開く", NamedTextColor.GRAY));
+
     }
 }
