@@ -1,7 +1,6 @@
 package jp.matatabi.torismpshop.data;
 
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
@@ -202,5 +201,23 @@ public class ShopStorage {
                 e.printStackTrace();
             }
         });
+    }
+
+    // ShopStorage.java 内
+    public static void reload() {
+        // 1. 一旦クリア
+        shops.clear();
+
+        // 2. 再読み込み
+        // YamlConfiguration を読み込み、ShopData.fromMap を使って shops に追加する処理
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(shopsFile);
+        List<Map<?, ?>> list = config.getMapList("shops");
+
+        for (Map<?, ?> map : list) {
+            // Map<Object, Object> から Map<String, Object> への安全な変換が必要な場合があります
+            Map<String, Object> castedMap = (Map<String, Object>) map;
+            shops.add(ShopData.fromMap(castedMap));
+        }
+        plugin.getLogger().info("shops.yml をリロードしたよ！");
     }
 }

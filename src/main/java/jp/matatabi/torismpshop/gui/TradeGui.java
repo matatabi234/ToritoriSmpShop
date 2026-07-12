@@ -3,20 +3,16 @@ package jp.matatabi.torismpshop.gui;
 import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.TradeItem;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 🌅 取引画面GUI
@@ -85,46 +81,31 @@ public class TradeGui {
         player.openInventory(gui);
     }
 
-    /**
-     * 🌅 アイテムを指定範囲に配置する
-     * 64個以下 → アイコンをスタック表示
-     * 64個超え → アイコン x1 + Lore に個数
-     */
     private static void placeItems(Inventory gui, List<TradeItem> items, int startSlot, int endSlot) {
         int slot = startSlot;
         for (TradeItem shopItem : items) {
-            if (slot > endSlot) break;  // スロット足りない場合は打ち切り
+            if (slot > endSlot) break;
 
-            Material mat = shopItem.getMaterial();
+            // 💡 1. 保存された ItemStack をクローンして取得（これでエンチャントやNBTが全て引き継がれる！）
+            ItemStack display = shopItem.getItemStack().clone();
             int amount = shopItem.getAmount();
 
-            ItemStack display;
-            if (amount <= 64) {
-                // 🌅 64個以下：スタック数で表示
-                display = new ItemStack(mat, amount);
-                ItemMeta meta = display.getItemMeta();
-                if (meta != null) {
-                    meta.displayName(Component.text("§f" + mat.name() + " §7x " + amount)
-                            .decoration(TextDecoration.ITALIC, false));
-                    display.setItemMeta(meta);
-                }
-            } else {
-                // 🌅 64個超え：アイコン x1 + Lore で個数明記
-                display = new ItemStack(mat, 1);
-                ItemMeta meta = display.getItemMeta();
-                if (meta != null) {
-                    meta.displayName(Component.text("§f" + mat.name())
-                            .decoration(TextDecoration.ITALIC, false));
-                    List<Component> lore = new ArrayList<>();
-                    lore.add(Component.text("§7━━━━━━━━━━━━━")
-                            .decoration(TextDecoration.ITALIC, false));
-                    lore.add(Component.text("§e§l個数: §f§l" + amount + " 個")
-                            .decoration(TextDecoration.ITALIC, false));
-                    lore.add(Component.text("§7━━━━━━━━━━━━━")
-                            .decoration(TextDecoration.ITALIC, false));
+            // 💡 2. 表示用のメタデータ調整
+            ItemMeta meta = display.getItemMeta();
+            if (meta != null) {
+                // 元々の表示名があればそれを活かしつつ、個数情報を追記するスタイルに変更
+                if (amount <= 64) {
+                    display.setAmount(amount);
+                    // 必要なら名前を調整
+                } else {
+                    display.setAmount(1); // 64個超えは見た目を1にしてLoreで補足
+                    List<Component> lore = meta.hasLore() ? meta.lore() : new ArrayList<>();
+                    lore.add(Component.text("§7━━━━━━━━━━━━━").decoration(TextDecoration.ITALIC, false));
+                    lore.add(Component.text("§e§l個数: §f§l" + amount + " 個").decoration(TextDecoration.ITALIC, false));
+                    lore.add(Component.text("§7━━━━━━━━━━━━━").decoration(TextDecoration.ITALIC, false));
                     meta.lore(lore);
-                    display.setItemMeta(meta);
                 }
+                display.setItemMeta(meta);
             }
 
             gui.setItem(slot, display);
@@ -230,5 +211,32 @@ public class TradeGui {
      */
     public static void clearViewingShopId(Player player) {
         viewingShopId.remove(player.getUniqueId());
+    }
+
+    public static boolean isSatisfiedBy(ItemStack playerItem, ItemStack requiredItem) {
+        // 1. 基本チェック：アイテム種類
+        if (playerItem.getType() != requiredItem.getType()) return false;
+
+        ItemMeta pMeta = playerItem.getItemMeta();
+        ItemMeta rMeta = requiredItem.getItemMeta();
+
+        // 2. エンチャントの包含判定（ここが重要！）
+        Map<Enchantment, Integer> requiredEnchants = rMeta.getEnchants();
+        Map<Enchantment, Integer> playerEnchants = pMeta.getEnchants();
+
+        for (Map.Entry<Enchantment, Integer> entry : requiredEnchants.entrySet()) {
+            Enchantment ench = entry.getKey();
+            int requiredLevel = entry.getValue();
+
+            // プレイヤー側が指定レベル以上のエンチャントを持っているかチェック
+            if (playerEnchants.getOrDefault(ench, 0) < requiredLevel) {
+                return false; // 条件を満たさない
+            }
+        }
+
+        // 3. 不壊(Unbreakable)属性のチェック
+        if (rMeta.isUnbreakable() && !pMeta.isUnbreakable()) return false;
+
+        return true;
     }
 }

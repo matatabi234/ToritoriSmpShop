@@ -98,20 +98,35 @@ public class TradeItemListListener implements Listener {
 
             var tradeItem = list.get(index);
 
-            // 🌅 削除モードか編集モードかで分岐！
+// 🌅 削除モードか編集モードかで分岐！
             if (NewItemSession.isDeleteMode(player)) {
                 // ===== 🗑️ 削除 =====
                 NewItemSession.removeItem(player, target, index);
-                player.sendMessage("§c🗑️ " + tradeItem.getMaterial().name()
-                        + " x " + tradeItem.getAmount() + " を削除したよ！");
-                // GUI再描画
+
+                // 💡 表示名を取得する補助メソッドを使い、カスタム名があればそれを表示
+                String displayName = tradeItem.getItemStack().hasItemMeta() && tradeItem.getItemStack().getItemMeta().hasDisplayName()
+                        ? PlainTextComponentSerializer.plainText().serialize(tradeItem.getItemStack().getItemMeta().displayName())
+                        : tradeItem.getItemStack().getType().name();
+
+                player.sendMessage("§c🗑️ " + displayName + " x " + tradeItem.getAmount() + " を削除したよ！");
                 TradeItemListGui.open(player, target);
             } else {
                 // ===== ✏️ 編集 =====
-                NewItemSession.startEditing(player, index, tradeItem.getMaterial(), tradeItem.getAmount());
-                player.sendMessage("§b✏️ " + tradeItem.getMaterial().name()
-                        + " x " + tradeItem.getAmount() + " を編集するよ〜🌅");
-                ItemAddGui.open(player);
+                // 💡 startEditing に Material ではなく ItemStack を渡すように変更
+                NewItemSession.startEditing(player, index, tradeItem.getItemStack(), tradeItem.getAmount());
+
+                String displayName = tradeItem.getItemStack().hasItemMeta() && tradeItem.getItemStack().getItemMeta().hasDisplayName()
+                        ? PlainTextComponentSerializer.plainText().serialize(tradeItem.getItemStack().getItemMeta().displayName())
+                        : tradeItem.getItemStack().getType().name();
+
+                player.sendMessage("§b✏️ " + displayName + " x " + tradeItem.getAmount() + " を編集するよ〜🌅");
+
+                // 💡 ここでカスタムアイテム判定をして、開くGUIを出し分ける！
+                if (NewItemSession.isCustomItem(tradeItem.getItemStack())) {
+                    CustomItemSelectGui.open(player);
+                } else {
+                    ItemAddGui.open(player);
+                }
             }
             return;
         }

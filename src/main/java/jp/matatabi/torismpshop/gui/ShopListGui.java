@@ -13,11 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * 🏪 取引一覧GUI
@@ -107,17 +103,17 @@ public class ShopListGui {
                         ? Component.text("✏️ 編集モード: ON", NamedTextColor.RED)
                         : Component.text("✏️ 編集モード: OFF", NamedTextColor.GREEN),
                 List.of(
-        Component.text("クリックで切り替え", NamedTextColor.GRAY),
-                Component.text(""),
-                isEdit
-                        ? Component.text("編集モード中:", NamedTextColor.RED)
-                        : Component.text("通常モード:", NamedTextColor.GREEN),
-                isEdit
-                        ? Component.text("  左クリック: 編集", NamedTextColor.GRAY)
-                        : Component.text("  クリック: 詳細表示", NamedTextColor.GRAY),
-                isEdit
-                        ? Component.text("  右クリック: 削除", NamedTextColor.GRAY)
-                        : Component.text("", NamedTextColor.GRAY)
+                        Component.text("クリックで切り替え", NamedTextColor.GRAY),
+                        Component.text(""),
+                        isEdit
+                                ? Component.text("編集モード中:", NamedTextColor.RED)
+                                : Component.text("通常モード:", NamedTextColor.GREEN),
+                        isEdit
+                                ? Component.text("  左クリック: 編集", NamedTextColor.GRAY)
+                                : Component.text("  クリック: 詳細表示", NamedTextColor.GRAY),
+                        isEdit
+                                ? Component.text("  右クリック: 削除", NamedTextColor.GRAY)
+                                : Component.text("", NamedTextColor.GRAY)
                 )
         ));
 
@@ -208,6 +204,7 @@ public class ShopListGui {
         icon.setItemMeta(meta);
         return icon;
     }
+
     // ===================================================
     // 🔧 ヘルパー
     // ===================================================

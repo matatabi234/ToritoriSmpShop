@@ -1,8 +1,8 @@
 package jp.matatabi.torismpshop;
 
-import jp.matatabi.torismpshop.data.ShopStorage;
-import jp.matatabi.torismpshop.data.TradeManager;
+import jp.matatabi.torismpshop.data.*;
 import jp.matatabi.torismpshop.gui.*;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ToriSmpShop extends JavaPlugin {
@@ -14,11 +14,14 @@ public final class ToriSmpShop extends JavaPlugin {
     public void onEnable() {
         instance = this;
         this.tradeManager = new TradeManager();
+        ConfigurationSerialization.registerClass(TradeItem.class);
+        ConfigurationSerialization.registerClass(PlayerConfig.class);
 
         // 🌅 起動時に必ず呼ぶ！
         ItemSelectGui.initialize(this);
         ShopStorage.initialize(this);
         ShopStorage.loadAll();
+        PlayerSettingsManager.init(this.getDataFolder());
         getServer().getPluginManager().registerEvents(new MainMenuListener(), this);
         getServer().getPluginManager().registerEvents(new ItemSelectListener(), this);
         getServer().getPluginManager().registerEvents(new NewItemListener(), this);
@@ -29,6 +32,7 @@ public final class ToriSmpShop extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new TradeListener(), this);
         getServer().getPluginManager().registerEvents(new SignBindListener(), this);
         getServer().getPluginManager().registerEvents(new BindGuiListener(), this);
+        getServer().getPluginManager().registerEvents(new CustomItemSelectGuiListener(), this);
 
         getLogger().info("ToriSmpShop が起動したよ！");
     }

@@ -1,6 +1,5 @@
 package jp.matatabi.torismpshop;
 
-import jp.matatabi.torismpshop.ToriSmpShop;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -125,7 +124,7 @@ public class BindModeManager {
                 () -> onTimeout(player),
                 TIMEOUT_TICKS
         );
-        BindSession session = new BindSession(Mode.UNBIND, null, null,task);
+        BindSession session = new BindSession(Mode.UNBIND, null, null, task);
         sessions.put(player.getUniqueId(), session);
     }
 }

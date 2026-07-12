@@ -34,9 +34,17 @@ public class ItemSelectListener implements Listener {
             ItemSelectGui.open(player, currentPage - 1);
             return;
         }
+
+        // 下段の操作ボタン
+        if (slot == 46) {
+            // 前のページ
+            CustomItemSelectGui.open(player);
+            return;
+        }
+
         if (slot == 53) {
             // 次のページ
-            player.sendMessage("§e[Debug] 現在ページ: " + currentPage + " → " + (currentPage + 1) + " へ");
+//            player.sendMessage("§e[Debug] 現在ページ: " + currentPage + " → " + (currentPage + 1) + " へ");
             ItemSelectGui.open(player, currentPage + 1);
             return;
         }
@@ -86,7 +94,7 @@ public class ItemSelectListener implements Listener {
             // 🌅 アイテム追加モード中なら → tempMaterial に保存して ItemAddGui に戻る
             if (NewItemSession.isSelecting(player)) {
                 // 一時保存（まだリストには入れない！）
-                NewItemSession.setTempMaterial(player, selectedMaterial);
+                NewItemSession.setTempItem(player, new ItemStack(selectedMaterial));
 
                 // モード解除
                 NewItemSession.stopSelecting(player);

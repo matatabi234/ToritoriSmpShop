@@ -1,22 +1,23 @@
 package jp.matatabi.torismpshop.command;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import jp.matatabi.torismpshop.BindModeManager;
-import jp.matatabi.torismpshop.ToriSmpShop;
-import jp.matatabi.torismpshop.data.*;
+import jp.matatabi.torismpshop.data.PlayerConfig;
+import jp.matatabi.torismpshop.data.PlayerSettingsManager;
+import jp.matatabi.torismpshop.data.ShopData;
+import jp.matatabi.torismpshop.data.ShopStorage;
 import jp.matatabi.torismpshop.gui.BindGui;
 import jp.matatabi.torismpshop.gui.MainMenuGui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Material;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @SuppressWarnings("UnstableApiUsage")
 public class AdminShopCommand {
@@ -166,7 +167,7 @@ public class AdminShopCommand {
                         })
                 )
                 .then(Commands.literal("gui")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.gui"))
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.gui"))
                         .executes(ctx -> {
                             if (!(ctx.getSource().getSender() instanceof Player player)) {
                                 ctx.getSource().getSender().sendMessage(
@@ -178,7 +179,55 @@ public class AdminShopCommand {
                             return Command.SINGLE_SUCCESS;
                         })
                 )
+                .then(Commands.literal("reload")
+                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.load"))
+                        .executes(ctx -> {
+                            // 🔄 ここで ShopStorage.reload() を呼ぶ
+                            ShopStorage.reload();
+                            ctx.getSource().getSender().sendMessage(
+                                    Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .executes(ctx -> {
+                            // 🔄 ここで ShopStorage.reload() を呼ぶ
+                            ShopStorage.reload();
+                            ctx.getSource().getSender().sendMessage(
+                                    Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                )
+                .then(Commands.literal("setself")
+                        .requires(source -> source.getSender().hasPermission("torismpshop.admin"))
+                        .then(Commands.argument("mcid", StringArgumentType.word()) // 文字列として受け取る
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            String targetName = StringArgumentType.getString(ctx, "mcid");
+                                            boolean allow = BoolArgumentType.getBool(ctx, "value");
 
+                                            // 💡 ここでプレイヤーを解決
+                                            OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
+
+                                            // UUIDも名前もこれで取得できる
+                                            PlayerConfig config = PlayerSettingsManager.get(target.getUniqueId());
+                                            config.setAllowSelfTrade(allow);
+
+                                            // 💡 例外処理: try-catch で囲む（IOException対策）
+                                            try {
+                                                PlayerSettingsManager.save();
+                                                ctx.getSource().getSender().sendMessage(
+                                                        Component.text("§a" + target.getName() + " の設定を " + allow + " にしたよ！")
+                                                );
+                                            } catch (java.io.IOException e) {
+                                                e.printStackTrace();
+                                                ctx.getSource().getSender().sendMessage(Component.text("§c保存に失敗したよ！"));
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        })
+                                )
+                        )
+                )
 
                 .build();
     }

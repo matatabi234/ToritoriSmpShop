@@ -1,5 +1,5 @@
 name: ToriSmpShop
-version: '1.0.8'
+version: '1.1.0'
 main: jp.matatabi.torismpshop.ToriSmpShop
 api-version: '1.21.8'
 # ブートストラップクラスの指定（必要に応じて）

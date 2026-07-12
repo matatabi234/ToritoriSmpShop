@@ -4,6 +4,7 @@ import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.TradeItem;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
 
@@ -27,7 +28,7 @@ public class NewItemSession {
     private static final Map<UUID, EditTarget> editTarget = new HashMap<>();
 
     // 🌅 追加中のアイテム（一時保存用）
-    private static final Map<UUID, org.bukkit.Material> tempMaterial = new HashMap<>();
+    private static final Map<UUID, ItemStack> tempItem = new HashMap<>();
 
     // 🌅 追加中の個数（一時保存用）
     private static final Map<UUID, Integer> tempAmount = new HashMap<>();
@@ -45,6 +46,7 @@ public class NewItemSession {
     public static int getTempAmount(Player player) {
         return tempAmount.getOrDefault(player.getUniqueId(), 1);  // デフォルト1個
     }
+
 
     public static void clearTempAmount(Player player) {
         tempAmount.remove(player.getUniqueId());
@@ -226,19 +228,33 @@ public class NewItemSession {
     // 📌 一時保存（追加中のアイテム）
     // ===================================
 
-    /**
-     * アイテム選択後、個数入力するまでの間の一時保存
-     */
-    public static void setTempMaterial(Player player, org.bukkit.Material material) {
-        tempMaterial.put(player.getUniqueId(), material);
+    // ゲッター・セッターもItemStack対応に
+    public static void setTempItem(Player player, ItemStack item) {
+        tempItem.put(player.getUniqueId(), item);
     }
 
-    public static org.bukkit.Material getTempMaterial(Player player) {
-        return tempMaterial.get(player.getUniqueId());
+    public static ItemStack getTempItem(Player player) {
+        return tempItem.get(player.getUniqueId());
+    }
+
+    public static void clearTempItem(Player player) {
+        tempItem.remove(player.getUniqueId());
+    }
+
+    // 🌅 リストにアイテムを追加するメソッドをItemStack対応にする
+    public static void addItem(Player player, EditTarget target, ItemStack item, int amount) {
+        // ここで ItemStack から TradeItem を作成
+        TradeItem newItem = new TradeItem(item, amount);
+
+        if (target == EditTarget.PAY) {
+            getPayItems(player).add(newItem);
+        } else if (target == EditTarget.RECEIVE) {
+            getReceiveItems(player).add(newItem);
+        }
     }
 
     public static void clearTempMaterial(Player player) {
-        tempMaterial.remove(player.getUniqueId());
+        tempItem.remove(player.getUniqueId());
     }
 
 
@@ -263,7 +279,7 @@ public class NewItemSession {
         selectingMode.remove(uuid);
         amountInputMode.remove(uuid);
         editTarget.remove(uuid);
-        tempMaterial.remove(uuid);
+        tempItem.remove(player.getUniqueId());
         tempAmount.remove(uuid);  // ← 追加！
         editingIndex.remove(player.getUniqueId());
         deleteMode.remove(player.getUniqueId());
@@ -274,10 +290,11 @@ public class NewItemSession {
 
     /**
      * 🌅 リストにアイテムを追加
-     * @param player プレイヤー
-     * @param target PAY か RECEIVE
+     *
+     * @param player   プレイヤー
+     * @param target   PAY か RECEIVE
      * @param material 追加するアイテム
-     * @param amount 個数
+     * @param amount   個数
      */
     public static void addItem(Player player, EditTarget target, Material material, int amount) {
         TradeItem newItem = new TradeItem(material, amount);
@@ -292,10 +309,12 @@ public class NewItemSession {
     /**
      * 編集モード開始（既存アイテムの編集）
      */
-    public static void startEditing(Player player, int index, Material mat, int amount) {
+    public static void startEditing(Player player, int index, ItemStack item, int amount) {
         editingIndex.put(player.getUniqueId(), index);
-        // 一時保存に既存の値を入れておく（初期表示用）
-        setTempMaterial(player, mat);
+
+        // 💡 以前は Material を保存していた場所を、これからは ItemStack で保存する
+        setTempItem(player, item);
+
         setTempAmount(player, amount);
     }
 
@@ -316,12 +335,15 @@ public class NewItemSession {
     /**
      * リスト内のアイテムを更新（編集用）
      */
-    public static void updateItem(Player player, EditTarget target, int index, Material mat, int amount) {
+    public static void updateItem(Player player, EditTarget target, int index, ItemStack newItem, int amount) {
         List<TradeItem> list = (target == EditTarget.PAY)
                 ? getPayItems(player)
                 : getReceiveItems(player);
+
         if (index >= 0 && index < list.size()) {
-            list.set(index, new TradeItem(mat, amount));
+            // 修正前: list.set(index, new TradeItem(mat, amount));
+            // 修正後: 引数の newItem を使う！
+            list.set(index, new TradeItem(newItem, amount));
         }
     }
 
@@ -391,5 +413,15 @@ public class NewItemSession {
         receiveItems.put(uuid, new ArrayList<>(shop.getReceiveItems()));
         // 編集中IDセット
         editingShopId.put(uuid, shop.getId());
+    }
+
+    public static boolean isCustomItem(ItemStack item) {
+        if (item == null) return false;
+        // 名前があるか、エンチャントがあるか、PDCがあるかで判定
+        return item.hasItemMeta() && (
+                item.getItemMeta().hasDisplayName() ||
+                        !item.getEnchantments().isEmpty() ||
+                        item.getItemMeta().hasCustomModelData()
+        );
     }
 }
