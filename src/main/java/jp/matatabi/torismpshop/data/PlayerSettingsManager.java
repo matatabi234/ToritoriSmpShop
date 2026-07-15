@@ -3,6 +3,7 @@ package jp.matatabi.torismpshop.data;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,14 +14,34 @@ import java.util.UUID;
 public class PlayerSettingsManager {
     private static final Map<UUID, PlayerConfig> settings = new HashMap<>();
     private static File file;
+    private static Plugin plugin;
 
-    public static void init(File dataFolder) {
+    public static void init(Plugin pl) {
+        plugin = pl; // ここでプラグイン本体を保持する
+
+        // フォルダのパスを取得
+        File dataFolder = plugin.getDataFolder();
+        if (!dataFolder.exists()) {
+            dataFolder.mkdirs();
+        }
+
         file = new File(dataFolder, "player_settings.yml");
+
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+                plugin.getLogger().info("player_settings.yml を新規作成したよ🌅");
+            } catch (IOException e) {
+                plugin.getLogger().severe("player_settings.yml の作成に失敗: " + e.getMessage());
+            }
+        }
+
+        // 最後にロード
         load();
     }
 
     public static PlayerConfig get(UUID uuid) {
-        return settings.computeIfAbsent(uuid, k -> new PlayerConfig(false));
+        return settings.computeIfAbsent(uuid, k -> new PlayerConfig(false,false));
     }
 
     public static void save() throws IOException {
@@ -50,5 +71,13 @@ public class PlayerSettingsManager {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+    public static void reload() {
+        // 1. メモリ上の現在の設定をすべてクリアする
+        settings.clear();
+
+        // 2. ファイルから読み込み直す
+        load();
+        plugin.getLogger().info("player_settings.yml をリロードしたよ！");
     }
 }

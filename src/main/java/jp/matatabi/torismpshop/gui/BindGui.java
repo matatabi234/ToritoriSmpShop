@@ -1,5 +1,6 @@
 package jp.matatabi.torismpshop.gui;
 
+import jp.matatabi.torismpshop.data.PlayerSettingsManager;
 import jp.matatabi.torismpshop.data.ShopData;
 import jp.matatabi.torismpshop.data.ShopStorage;
 import jp.matatabi.torismpshop.data.TradeItem;
@@ -46,15 +47,18 @@ public class BindGui {
      * 指定ページを開く
      */
     public static void openPage(Player player, int page) {
-        // 自分の取引だけ抽出
-        List<ShopData> myShops = new ArrayList<>();
+
+        boolean showAll = PlayerSettingsManager.get(player.getUniqueId()).isShowAllTrades();
+
+        List<ShopData> displayShops = new ArrayList<>();
         for (ShopData shop : ShopStorage.getAll()) {
-            if (shop.getOwnerUuid().equals(player.getUniqueId())) {
-                myShops.add(shop);
+            // 全表示ON または 自分の取引である場合に追加
+            if (showAll || shop.getOwnerUuid().equals(player.getUniqueId())) {
+                displayShops.add(shop);
             }
         }
 
-        int totalPages = Math.max(1, (int) Math.ceil(myShops.size() / (double) ITEMS_PER_PAGE));
+        int totalPages = Math.max(1, (int) Math.ceil(displayShops.size() / (double) ITEMS_PER_PAGE));
 
         // ページ範囲チェック
         if (page < 0) page = 0;
@@ -71,7 +75,7 @@ public class BindGui {
         for (int i = 36; i < 45; i++) inv.setItem(i, glass);
 
         // ===== 自分の取引が0件の場合 =====
-        if (myShops.isEmpty()) {
+        if (displayShops.isEmpty()) {
             ItemStack empty = new ItemStack(Material.BARRIER);
             ItemMeta meta = empty.getItemMeta();
             meta.displayName(Component.text("§c取引がまだ無いよ〜💦")
@@ -87,10 +91,10 @@ public class BindGui {
         // ===== 商品配置 =====
         Map<Integer, String> slotMap = new HashMap<>();
         int startIndex = page * ITEMS_PER_PAGE;
-        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, myShops.size());
+        int endIndex = Math.min(startIndex + ITEMS_PER_PAGE, displayShops.size());
 
         for (int i = startIndex; i < endIndex; i++) {
-            ShopData shop = myShops.get(i);
+            ShopData shop = displayShops.get(i);
             int slot = SLOT_ITEM_START + (i - startIndex);
             inv.setItem(slot, createShopIcon(shop));
             slotMap.put(slot, shop.getId());

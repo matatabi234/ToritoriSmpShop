@@ -77,10 +77,28 @@ public class ChatInputListener implements Listener {
         }
 
         // ===== 数字チェック =====
+// ===== 数字チェック =====
         int amount;
         try {
-            amount = Integer.parseInt(message);
+            // 1. 前後の空白を削除
+            String cleanedMessage = message.trim();
+
+            // 2. 全角数字を半角数字に変換（全角で入力しちゃった人への優しさ）
+            cleanedMessage = convertFullWidthToHalfWidth(cleanedMessage);
+
+            // 3. 数字以外の見えない文字やゴミを完全に排除 (正規表現)
+            cleanedMessage = cleanedMessage.replaceAll("[^0-9]", "");
+
+            // 変換後の文字列が空っぽになってしまったらエラーにする
+            if (cleanedMessage.isEmpty()) {
+                throw new NumberFormatException();
+            }
+
+            amount = Integer.parseInt(cleanedMessage);
         } catch (NumberFormatException e) {
+            // 💡 デバッグ用: コンソールに実際にどんな文字列が届いていたか出力する（原因特定に便利）
+            Bukkit.getLogger().warning("[ToriSmpShop] 数字変換に失敗した文字列: [" + message + "]");
+
             player.sendMessage("§c❌ 数字を入力してね！（例: 64）");
             Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
             return;
@@ -104,5 +122,18 @@ public class ChatInputListener implements Listener {
 
         // ItemAddGui を開き直す（メインスレッドで！）
         Bukkit.getScheduler().runTask(plugin, () -> ItemAddGui.open(player));
+    }
+    // 全角数字を半角数字に変換する便利メソッド
+    private String convertFullWidthToHalfWidth(String s) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= '０' && c <= '９') {
+                sb.append((char) (c - '０' + '0'));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

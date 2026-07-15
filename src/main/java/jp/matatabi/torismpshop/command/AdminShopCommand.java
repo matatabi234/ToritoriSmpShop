@@ -18,12 +18,15 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 
 @SuppressWarnings("UnstableApiUsage")
 public class AdminShopCommand {
 
     public static LiteralCommandNode<CommandSourceStack> build() {
+
         return Commands.literal("torishop")
+
                 .requires(source -> source.getSender().hasPermission("torismpshop.torishop"))
 
                 // /torishop → ヘルプ表示
@@ -185,8 +188,9 @@ public class AdminShopCommand {
                             try {
                                 // 🔄 リロード実行
                                 ShopStorage.reload();
+                                PlayerSettingsManager.reload();
                                 ctx.getSource().getSender().sendMessage(
-                                        Component.text("ショップ設定をリロードしたよ！", NamedTextColor.GREEN)
+                                        Component.text("ショップ設定とプレイヤー設定をリロードしたよ！", NamedTextColor.GREEN)
                                 );
                             } catch (Exception e) {
                                 // 💡 リロード失敗時にエラーを報告
@@ -199,37 +203,144 @@ public class AdminShopCommand {
                             return Command.SINGLE_SUCCESS; // 成功
                         })
                 )
-                .then(Commands.literal("setself")
-                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.setself"))
-                        .then(Commands.argument("mcid", StringArgumentType.word()) // 文字列として受け取る
-                                .then(Commands.argument("value", BoolArgumentType.bool())
-                                        .executes(ctx -> {
-                                            String targetName = StringArgumentType.getString(ctx, "mcid");
-                                            boolean allow = BoolArgumentType.getBool(ctx, "value");
-
-                                            // 💡 ここでプレイヤーを解決
-                                            OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
-
-                                            // UUIDも名前もこれで取得できる
-                                            PlayerConfig config = PlayerSettingsManager.get(target.getUniqueId());
-                                            config.setAllowSelfTrade(allow);
-
-                                            // 💡 例外処理: try-catch で囲む（IOException対策）
-                                            try {
-                                                PlayerSettingsManager.save();
-                                                ctx.getSource().getSender().sendMessage(
-                                                        Component.text("§a" + target.getName() + " の設定を " + allow + " にしたよ！")
-                                                );
-                                            } catch (java.io.IOException e) {
-                                                e.printStackTrace();
-                                                ctx.getSource().getSender().sendMessage(Component.text("§c保存に失敗したよ！"));
-                                            }
-                                            return Command.SINGLE_SUCCESS;
+                .then(Commands.literal("settings")
+                        .then(Commands.literal("setself")
+                                .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.settings.setself"))
+                                // 💡 修正ポイント1: ArgumentTypes.player() の代わりに StringArgumentType.word() を使い、オンラインプレイヤーの名前を補完させる
+                                .then(Commands.argument("mcid", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> {
+                                            // オンラインプレイヤーの名前をTAB補完に出す安全な処理
+                                            org.bukkit.Bukkit.getOnlinePlayers().forEach(p -> builder.suggest(p.getName()));
+                                            return builder.buildFuture();
                                         })
+                                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                                .executes(ctx -> {
+                                                    // 💡 修正ポイント2: ここは文字列として安全に取得できる！
+                                                    String playerName = StringArgumentType.getString(ctx, "mcid");
+                                                    Player target = Bukkit.getPlayer(playerName);
+
+                                                    // ログアウト対策
+                                                    if (target == null) {
+                                                        ctx.getSource().getSender().sendMessage(Component.text("§cそのプレイヤーはオンラインじゃないよ！", NamedTextColor.RED));
+                                                        return Command.SINGLE_SUCCESS;
+                                                    }
+
+                                                    boolean allow = BoolArgumentType.getBool(ctx, "value");
+
+                                                    PlayerConfig config = PlayerSettingsManager.get(target.getUniqueId());
+                                                    config.setAllowSelfTrade(allow);
+
+                                                    try {
+                                                        PlayerSettingsManager.save();
+                                                        ctx.getSource().getSender().sendMessage(
+                                                                Component.text("§a" + target.getName() + " の設定を " + allow + " にしたよ！")
+                                                        );
+                                                    } catch (java.io.IOException e) {
+                                                        e.printStackTrace();
+                                                        ctx.getSource().getSender().sendMessage(Component.text("§c保存に失敗したよ！"));
+                                                    }
+                                                    return Command.SINGLE_SUCCESS;
+                                                })
+                                        )
+                                )
+                        )
+                        .then(Commands.literal("setshowall")
+                                .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.settings.setshowall"))
+                                // 💡 修正ポイント1: ここも同様に補完付きの文字列引数にする
+                                .then(Commands.argument("mcid", StringArgumentType.word())
+                                        .suggests((ctx, builder) -> {
+                                            org.bukkit.Bukkit.getOnlinePlayers().forEach(p -> builder.suggest(p.getName()));
+                                            return builder.buildFuture();
+                                        })
+                                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                                .executes(ctx -> {
+                                                    // 💡 修正ポイント2: 文字列として取得
+                                                    String playerName = StringArgumentType.getString(ctx, "mcid");
+                                                    Player target = Bukkit.getPlayer(playerName);
+
+                                                    if (target == null) {
+                                                        ctx.getSource().getSender().sendMessage(Component.text("§cそのプレイヤーはオンラインじゃないよ！", NamedTextColor.RED));
+                                                        return Command.SINGLE_SUCCESS;
+                                                    }
+
+                                                    boolean value = BoolArgumentType.getBool(ctx, "value");
+
+                                                    PlayerConfig config = PlayerSettingsManager.get(target.getUniqueId());
+                                                    config.setShowAllTrades(value);
+
+                                                    try {
+                                                        PlayerSettingsManager.save();
+                                                        ctx.getSource().getSender().sendMessage(Component.text("§a" + target.getName() + " の設定を " + value + " にしたよ！"));
+                                                    } catch (Exception e) {
+                                                        ctx.getSource().getSender().sendMessage(Component.text("§c保存失敗！"));
+                                                    }
+                                                    return Command.SINGLE_SUCCESS;
+                                                })
+                                        )
                                 )
                         )
                 )
+                .then(Commands.literal("offline")
+                        .then(Commands.literal("settings")
+                                .then(Commands.literal("setself")
+                                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.settings.setself"))
+                                        .then(Commands.argument("mcid", StringArgumentType.word()) // 文字列として受け取る
+                                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                                        .executes(ctx -> {
+                                                            String targetName = StringArgumentType.getString(ctx, "mcid");
+                                                            boolean allow = BoolArgumentType.getBool(ctx, "value");
 
+                                                            // 💡 ここでプレイヤーを解決
+                                                            OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
+
+                                                            // UUIDも名前もこれで取得できる
+                                                            PlayerConfig config = PlayerSettingsManager.get(target.getUniqueId());
+                                                            config.setAllowSelfTrade(allow);
+
+                                                            // 💡 例外処理: try-catch で囲む（IOException対策）
+                                                            try {
+                                                                PlayerSettingsManager.save();
+                                                                ctx.getSource().getSender().sendMessage(
+                                                                        Component.text("§a" + target.getName() + " の設定を " + allow + " にしたよ！")
+                                                                );
+                                                            } catch (java.io.IOException e) {
+                                                                e.printStackTrace();
+                                                                ctx.getSource().getSender().sendMessage(Component.text("§c保存に失敗したよ！"));
+                                                            }
+                                                            return Command.SINGLE_SUCCESS;
+                                                        })
+                                                )
+                                        )
+                                )
+                                .then(Commands.literal("setshowall")
+                                        .requires(source -> source.getSender().hasPermission("torismpshop.torishop.admin.settings.setshowall"))
+                                        .then(Commands.argument("mcid", StringArgumentType.word())
+                                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                                        .executes(ctx -> {
+                                                            String targetName = StringArgumentType.getString(ctx, "mcid");
+                                                            boolean value = BoolArgumentType.getBool(ctx, "value");
+
+                                                            OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
+
+                                                            // PlayerSettingsManager にメソッドを作成済みと仮定
+                                                            PlayerSettingsManager.setAllowSelfTrade(target.getName(), value);
+
+                                                            try {
+                                                                PlayerSettingsManager.save();
+                                                                ctx.getSource().getSender().sendMessage(
+                                                                        Component.text("§a" + target.getName() + " の全表示設定を " + value + " にしたよ！")
+                                                                );
+                                                            } catch (java.io.IOException e) {
+                                                                e.printStackTrace();
+                                                                ctx.getSource().getSender().sendMessage(Component.text("§c保存に失敗したよ！"));
+                                                            }
+                                                            return Command.SINGLE_SUCCESS;
+                                                        })
+                                                )
+                                        )
+                                )
+                        )
+                )
                 .build();
     }
 
@@ -240,6 +351,8 @@ public class AdminShopCommand {
         source.getSender().sendMessage(Component.text("/torishop bind            - 紐づけ画面を開く", NamedTextColor.GRAY));
         source.getSender().sendMessage(Component.text("/torishop bind name <名前> - ショップの名前を変更", NamedTextColor.GRAY));
         source.getSender().sendMessage(Component.text("/torishop unbind          - 紐づけ画面を開く", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop settings        - プレイヤー設定", NamedTextColor.GRAY));
+        source.getSender().sendMessage(Component.text("/torishop offline settings- オフラインプレイヤー設定", NamedTextColor.GRAY));
 
     }
 }

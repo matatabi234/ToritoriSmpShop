@@ -24,6 +24,8 @@ import java.util.Map;
  */
 public class TradeListener implements Listener {
 
+    private static final java.util.Set<java.util.UUID> tradingPlayers = new java.util.HashSet<>();
+
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         // タイトルチェック
@@ -66,142 +68,157 @@ public class TradeListener implements Listener {
      * 🌅 取引実行のメイン処理
      */
     private void executeTrade(Player player) {
-        // ===== 表示中のShopIDを取得 =====
-        String shopId = TradeGui.getViewingShopId(player);
-        if (shopId == null) {
-            player.sendMessage("§c取引情報が見つからないよ💦");
-            player.closeInventory();
-            return;
-        }
+        if (tradingPlayers.contains(player.getUniqueId())) return; // 既に処理中なら無視
+        tradingPlayers.add(player.getUniqueId());
 
-        // ===== ShopData を取得 =====
-        ShopData shop = ShopStorage.getById(shopId);
-        if (shop == null) {
-            player.sendMessage("§cこの取引はもう存在しないよ💦");
-            TradeGui.clearViewingShopId(player);
-            player.closeInventory();
-            return;
-        }
-
-        // 🌅 自分の取引は実行できないようにする（ただし、設定で許可されている場合は例外）
-        if (shop.getOwnerUuid().equals(player.getUniqueId())) {
-            // 💡 設定を取得（PlayerSettingsManager がなければ false を返すようにしておく）
-            boolean canSelfTrade = PlayerSettingsManager.get(player.getUniqueId()).isAllowSelfTrade();
-
-            if (!canSelfTrade) {
-                player.sendMessage("§c自分の取引は実行できないよ〜🙈 (設定で許可すればOK)");
+        try {
+            // ===== 表示中のShopIDを取得 =====
+            String shopId = TradeGui.getViewingShopId(player);
+            if (shopId == null) {
+                player.sendMessage("§c取引情報が見つからないよ💦");
+                player.closeInventory();
                 return;
             }
-        }
 
-        PlayerInventory inv = player.getInventory();
-        List<TradeItem> payItems = shop.getPayItems();
-        List<TradeItem> receiveItems = shop.getReceiveItems();
-
-        // ===== ① 支払い分を持っているかチェック（TradeItem単位）=====
-        for (TradeItem ti : payItems) {
-            int have = countSatisfyingItems(inv, ti);
-            if (have < ti.getAmount()) {
-                player.sendMessage("§c§l✖ 必要な条件を満たすアイテムが足りないよ！");
-
-                // 🌌 表示メッセージも MatchMode で分岐
-                String label = ti.getMaterial().name();
-                if (ti.getMatchMode() == TradeItem.MatchMode.HAS_TAG) {
-                    label += " [タグ: " + ti.getTagKey()
-                            + (ti.getTagValue() != null ? "=" + ti.getTagValue() : "") + "]";
-                }
-
-                player.sendMessage("§7必要: §f" + label + " x " + ti.getAmount()
-                        + " §7(§c不足 " + (ti.getAmount() - have) + "個§7)");
+            // ===== ShopData を取得 =====
+            ShopData shop = ShopStorage.getById(shopId);
+            if (shop == null) {
+                player.sendMessage("§cこの取引はもう存在しないよ💦");
+                TradeGui.clearViewingShopId(player);
+                player.closeInventory();
                 return;
             }
-        }
 
-        // ===== ② インベントリ空きチェック（簡易）=====
-        int emptySlots = 0;
-        for (ItemStack item : inv.getStorageContents()) {
-            if (item == null || item.getType() == Material.AIR) {
-                emptySlots++;
-            }
-        }
+            // 🌅 自分の取引は実行できないようにする（ただし、設定で許可されている場合は例外）
+            if (shop.getOwnerUuid().equals(player.getUniqueId())) {
+                // 💡 設定を取得（PlayerSettingsManager がなければ false を返すようにしておく）
+                boolean canSelfTrade = PlayerSettingsManager.get(player.getUniqueId()).isAllowSelfTrade();
 
-        // 🌅 receive のアイテムが必要とするスロット数を概算
-        int neededSlots = 0;
-        for (TradeItem ti : receiveItems) {
-            int max = ti.getMaterial().getMaxStackSize();
-            neededSlots += (int) Math.ceil((double) ti.getAmount() / max);
-        }
-
-        // 🌅 pay を消費するので、pay分のスロットは空くと想定
-        int payWillFreeSlots = 0;
-        for (TradeItem ti : payItems) {
-            int max = ti.getMaterial().getMaxStackSize();
-            payWillFreeSlots += (int) Math.ceil((double) ti.getAmount() / max);
-        }
-
-        if (emptySlots + payWillFreeSlots < neededSlots) {
-            player.sendMessage("§c§l✖ インベントリに空きがないよ！");
-            player.sendMessage("§7いらないアイテムを片付けてから、もう一度どうぞ〜");
-            return;
-        }
-
-        // ===== ③ 支払い分を削除（修正版）=====
-        for (TradeItem ti : payItems) {
-            int remainingToRemove = ti.getAmount();
-            ItemStack[] contents = inv.getContents();
-
-            for (int i = 0; i < contents.length; i++) {
-                ItemStack item = contents[i];
-                if (item == null || item.getType() == Material.AIR) continue;
-
-                // 条件を満たすアイテムなら削除対象にする
-                if (TradeGui.isSatisfiedBy(item, ti.getItemStack())) {
-                    int amount = item.getAmount();
-                    if (amount <= remainingToRemove) {
-                        remainingToRemove -= amount;
-                        inv.setItem(i, null); // アイテムを消去
-                    } else {
-                        item.setAmount(amount - remainingToRemove);
-                        remainingToRemove = 0;
-                    }
+                if (!canSelfTrade) {
+                    player.sendMessage("§c自分の取引は実行できないよ〜🙈 (設定で許可すればOK)");
+                    return;
                 }
-                if (remainingToRemove <= 0) break;
             }
-        }
 
-        // ===== ④ 受け取り分を付与 (修正版) =====
-        for (TradeItem ti : receiveItems) {
-            int remaining = ti.getAmount();
-            // 💡 設定されているItemStack（NBT付き）を元にする
-            ItemStack template = ti.getItemStack();
-            int maxStack = template.getMaxStackSize();
+            PlayerInventory inv = player.getInventory();
+            List<TradeItem> payItems = shop.getPayItems();
+            List<TradeItem> receiveItems = shop.getReceiveItems();
 
-            while (remaining > 0) {
-                int give = Math.min(remaining, maxStack);
+            // ===== ① 支払い分を持っているかチェック（TradeItem単位）=====
+            for (TradeItem ti : payItems) {
+                int have = countSatisfyingItems(inv, ti);
+                if (have < ti.getAmount()) {
+                    player.sendMessage("§c§l✖ 必要な条件を満たすアイテムが足りないよ！");
 
-                // 💡 クローンを作成して、個数だけを設定する
-                ItemStack stack = template.clone();
-                stack.setAmount(give);
-
-                Map<Integer, ItemStack> leftover = inv.addItem(stack);
-
-                // 入りきらなかった分は足元にドロップ
-                if (!leftover.isEmpty()) {
-                    Location loc = player.getLocation();
-                    for (ItemStack drop : leftover.values()) {
-                        player.getWorld().dropItemNaturally(loc, drop);
+                    // 🌌 表示メッセージも MatchMode で分岐
+                    String label = ti.getMaterial().name();
+                    if (ti.getMatchMode() == TradeItem.MatchMode.HAS_TAG) {
+                        label += " [タグ: " + ti.getTagKey()
+                                + (ti.getTagValue() != null ? "=" + ti.getTagValue() : "") + "]";
                     }
-                    player.sendMessage("§eインベに入りきらなかった分は足元にドロップしたよ〜🌅");
-                }
-                remaining -= give;
-            }
-        }
 
-        // ===== ⑤ 成功メッセージ =====
-        player.sendMessage("§a§l✅ 取引成立！");
-        player.sendMessage("§7" + shop.getOwnerName() + " §7さんの取引を利用したよ🤝");
-        player.playSound(player.getLocation(),
-                org.bukkit.Sound.ENTITY_VILLAGER_YES, 1.0f, 1.2f);
+                    player.sendMessage("§7必要: §f" + label + " x " + ti.getAmount()
+                            + " §7(§c不足 " + (ti.getAmount() - have) + "個§7)");
+                    return;
+                }
+            }
+
+            // ===== ② インベントリ空きチェック（簡易）=====
+            int emptySlots = 0;
+            for (ItemStack item : inv.getStorageContents()) {
+                if (item == null || item.getType() == Material.AIR) {
+                    emptySlots++;
+                }
+            }
+
+            // 🌅 receive のアイテムが必要とするスロット数を概算
+            int neededSlots = 0;
+            for (TradeItem ti : receiveItems) {
+                int max = ti.getMaterial().getMaxStackSize();
+                neededSlots += (int) Math.ceil((double) ti.getAmount() / max);
+            }
+
+            // 🌅 pay を消費するので、pay分のスロットは空くと想定
+            int payWillFreeSlots = 0;
+            for (TradeItem ti : payItems) {
+                int max = ti.getMaterial().getMaxStackSize();
+                payWillFreeSlots += (int) Math.ceil((double) ti.getAmount() / max);
+            }
+
+            if (emptySlots + payWillFreeSlots < neededSlots) {
+                player.sendMessage("§c§l✖ インベントリに空きがないよ！");
+                player.sendMessage("§7いらないアイテムを片付けてから、もう一度どうぞ〜");
+                return;
+            }
+            // 修正案: executeTrade メソッドの「② インベントリ空きチェック」の直後に追加
+            // ===== ③ 支払い分を再度チェック（念のための二重確認）=====
+            for (TradeItem ti : payItems) {
+                if (countSatisfyingItems(inv, ti) < ti.getAmount()) {
+                    player.sendMessage("§c§l✖ 取引実行中にアイテムが足りなくなりました！");
+                    return; // 処理を中断
+                }
+            }
+            // ===== ③ 支払い分を削除（修正版）=====
+            for (TradeItem ti : payItems) {
+                int remainingToRemove = ti.getAmount();
+                ItemStack[] contents = inv.getContents();
+
+                for (int i = 0; i < contents.length; i++) {
+                    ItemStack item = contents[i];
+                    if (item == null || item.getType() == Material.AIR) continue;
+
+                    // 条件を満たすアイテムなら削除対象にする
+                    if (TradeGui.isSatisfiedBy(item, ti.getItemStack())) {
+                        int amount = item.getAmount();
+                        if (amount <= remainingToRemove) {
+                            remainingToRemove -= amount;
+                            inv.setItem(i, null); // アイテムを消去
+                        } else {
+                            item.setAmount(amount - remainingToRemove);
+                            remainingToRemove = 0;
+                        }
+                    }
+                    if (remainingToRemove <= 0) break;
+                }
+            }
+
+            // ===== ④ 受け取り分を付与 (修正版) =====
+            for (TradeItem ti : receiveItems) {
+                int remaining = ti.getAmount();
+                // 💡 設定されているItemStack（NBT付き）を元にする
+                ItemStack template = ti.getItemStack();
+                int maxStack = template.getMaxStackSize();
+
+                while (remaining > 0) {
+                    int give = Math.min(remaining, maxStack);
+
+                    // 💡 クローンを作成して、個数だけを設定する
+                    ItemStack stack = template.clone();
+                    stack.setAmount(give);
+
+                    Map<Integer, ItemStack> leftover = inv.addItem(stack);
+
+                    // 入りきらなかった分は足元にドロップ
+                    if (!leftover.isEmpty()) {
+                        Location loc = player.getLocation();
+                        for (ItemStack drop : leftover.values()) {
+                            player.getWorld().dropItemNaturally(loc, drop);
+                        }
+                        player.sendMessage("§eインベに入りきらなかった分は足元にドロップしたよ〜🌅");
+                    }
+                    remaining -= give;
+                }
+            }
+
+            // ===== ⑤ 成功メッセージ =====
+            player.sendMessage("§a§l✅ 取引成立！");
+            player.sendMessage("§7" + shop.getOwnerName() + " §7さんの取引を利用したよ🤝");
+            player.playSound(player.getLocation(),
+                    org.bukkit.Sound.ENTITY_VILLAGER_YES, 1.0f, 1.2f);
+        } finally {
+            tradingPlayers.remove(player.getUniqueId()); // 成功・失敗に関わらず必ず解除
+            player.updateInventory(); // 最後に強制同期
+        }
     }
 
     /**
@@ -309,5 +326,13 @@ public class TradeListener implements Listener {
             }
         }
         return count;
+    }
+
+    /**
+     * 🌅 ログアウト時に取引ロックを強制解除
+     */
+    @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        tradingPlayers.remove(event.getPlayer().getUniqueId());
     }
 }

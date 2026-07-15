@@ -7,9 +7,11 @@ import java.util.Map;
 
 public class PlayerConfig implements ConfigurationSerializable {
     private boolean allowSelfTrade = false; // デフォルトは false
+    private boolean showAllTrades = false; // 💡 追加
 
-    public PlayerConfig(boolean allowSelfTrade) {
+    public PlayerConfig(boolean allowSelfTrade, boolean showAllTrades) { // コンストラクタ修正
         this.allowSelfTrade = allowSelfTrade;
+        this.showAllTrades = showAllTrades;
     }
 
     public boolean isAllowSelfTrade() {
@@ -20,14 +22,21 @@ public class PlayerConfig implements ConfigurationSerializable {
         this.allowSelfTrade = allowSelfTrade;
     }
 
+    public boolean isShowAllTrades() { return showAllTrades; }
+    public void setShowAllTrades(boolean showAllTrades) { this.showAllTrades = showAllTrades; }
+
     @Override
     public Map<String, Object> serialize() {
         Map<String, Object> map = new HashMap<>();
         map.put("allowSelfTrade", allowSelfTrade);
+        map.put("showAllTrades", showAllTrades); // 保存用に追加
         return map;
     }
 
     public static PlayerConfig deserialize(Map<String, Object> map) {
-        return new PlayerConfig((Boolean) map.getOrDefault("allowSelfTrade", false));
+        return new PlayerConfig(
+                (Boolean) map.getOrDefault("allowSelfTrade", false),
+                (Boolean) map.getOrDefault("showAllTrades", false) // 読み込み用に追加
+        );
     }
 }
